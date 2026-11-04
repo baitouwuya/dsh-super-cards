@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "title": {
+    "en": "baitouwuya DSH plugins",
+    "zh": "baitouwuya 的 DSH 插件"
+  },
+  "description": {
+    "en": "Plugins for DeepSeek Harness by baitouwuya.",
+    "zh": "baitouwuya 的 DeepSeek Harness 插件。"
+  },
+  "metadata": {
+    "categories": {
+      "ui": {
+        "title": {
+          "en": "UI components",
+          "zh": "界面组件"
+        }
+      }
+    },
+    "labels": {
+      "host": {
+        "title": {
+          "en": "Host",
+          "zh": "Host 侧"
+        }
+      },
+      "client": {
+        "title": {
+          "en": "Client",
+          "zh": "Client 侧"
+        }
+      }
+    },
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "dsh-super-cards",
+      "title": {
+        "en": "Super Cards",
+        "zh": "超级卡片"
+      },
+      "description": {
+        "en": "Native UI cards instead of Markdown: 29 block types, auto layout, four placements and a schema-backed config.",
+        "zh": "用原生 UI 卡片代替 Markdown 回答：29 种区块、自动排版、四种落位与原生配置。"
+      },
+      "icon": "icon.svg",
+      "author": "baitouwuya",
+      "homepage": "https://github.com/baitouwuya/dsh-super-cards#readme",
+      "repository": {
+        "url": "https://github.com/baitouwuya/dsh-super-cards"
+      },
+      "metadata": {
+        "category": "ui",
+        "keywords": [
+          "dsh",
+          "dsh-plugin",
+          "deepseek-harness",
+          "cards",
+          "generative-ui",
+          "agent"
+        ],
+        "labels": [
+          "host",
+          "client"
+        ]
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1793810630,
+          "source": {
+            "type": "npm"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1"
+          }
+        }
+      ]
+    }
+  ]
+}

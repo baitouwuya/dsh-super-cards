@@ -50,6 +50,9 @@ You can also click Add plugin on the Plugins page and paste the package name, or
 `plugin_manager`'s `install_bundle` at this checkout (development or offline install). Restart DSH
 (or reload the plugin row) and refresh the page.
 
+You can also install it from the plugin market: Settings → Plugin market → add the index source
+`https://raw.githubusercontent.com/baitouwuya/dsh-super-cards/main/market/index.json`, then search for `dsh-super-cards` in Discover.
+
 Then ask the model for a card, for example:
 
 ```jsonc

@@ -41,6 +41,9 @@ dsh plugin --profile desktop add dsh-super-cards
 也可以在「插件」页点 Add plugin 并粘贴包名，或用 `plugin_manager` 的 `install_bundle` 指向本仓库目录
 （开发/离线安装）。装好之后重启 DSH（或重载插件行）并刷新页面。
 
+也可以在「插件市场」里直接安装：设置 → 插件市场 → 添加索引源
+`https://raw.githubusercontent.com/baitouwuya/dsh-super-cards/main/market/index.json`，然后在 Discover 里搜索 `dsh-super-cards`。
+
 然后让模型用一张卡片回答，例如：
 
 ```jsonc

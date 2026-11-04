@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Super Cards">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#1F6FC0"/>
+  <rect x="11" y="18" width="42" height="31" rx="6" fill="#FFFFFF" fill-opacity="0.97"/>
+  <rect x="16" y="23" width="13" height="4" rx="2" fill="#1F6FC0" fill-opacity="0.9"/>
+  <rect x="16" y="31" width="8" height="12" rx="2" fill="#1F6FC0" fill-opacity="0.62"/>
+  <rect x="27" y="36" width="8" height="7" rx="2" fill="#1F6FC0" fill-opacity="0.62"/>
+  <rect x="38" y="30" width="9" height="13" rx="2" fill="#1F6FC0" fill-opacity="0.62"/>
+  <path d="M47 7.5l2.4 5.1 5.1 2.4-5.1 2.4L47 22.5l-2.4-5.1-5.1-2.4 5.1-2.4z" fill="#8FD3FF"/>
+</svg>
