@@ -1,0 +1,82 @@
+{
+  "name": "dsh-super-cards",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "DeepSeek Harness (DSH) Web plugin: the assistant answers with native UI cards — metrics, tables, charts, timelines and clickable next steps — instead of Markdown.",
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "meta": {
+    "title": "Super Cards",
+    "description": "Lets the assistant answer structured questions with native UI cards — metrics, tables, charts, timelines and action buttons — instead of Markdown, rendered inline in the conversation."
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "lib/*.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "verify": "npm test && npm run check:docs",
+    "sync:vendor": "node scripts/sync-vendor.mjs",
+    "assets": "node scripts/make-docs-assets.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "author": "baitouwuya",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "ui",
+    "cards",
+    "generative-ui",
+    "agent",
+    "web"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baitouwuya/dsh-super-cards.git"
+  },
+  "homepage": "https://github.com/baitouwuya/dsh-super-cards#readme",
+  "bugs": {
+    "url": "https://github.com/baitouwuya/dsh-super-cards/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.19.0"
+  }
+}

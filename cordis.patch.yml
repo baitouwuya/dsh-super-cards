@@ -1,0 +1,15 @@
+# Super Cards bundle: inserts the `render_ui` Host tool and its Web
+# conversation card renderer. The Host half registers the tool plus a prompt
+# section; the Client half renders the card through the `tool.call.toolview`
+# slot, keyed by the wire tool name. The automatic turn-tail next-step card is
+# opt-in: set `nextSteps: true` to let the Host generate one after every
+# finished turn (the model can always write one itself with place:"tail").
+- insert:
+    - id: super-cards
+      name: 'dsh-super-cards'
+      config:
+        nextSteps: false
+        # When enabled, one small model call per finished turn:
+        # nextStepsMax: 3
+        # nextStepsTimeoutMs: 15000
+        # nextStepsMinChars: 200

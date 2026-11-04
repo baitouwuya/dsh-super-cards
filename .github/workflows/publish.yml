@@ -1,0 +1,43 @@
+name: Publish
+
+# Publishes when a version tag is pushed. Trusted publishing (OIDC) is the
+# intended path: configure this repository as a trusted publisher for
+# dsh-super-cards on npmjs.com once, then no token is stored here. Before that
+# configuration exists, add an NPM_TOKEN repository secret and the same workflow
+# publishes with it. A version already on the registry is skipped, so tagging
+# after a manual release stays green.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Test suite
+        run: npm test
+      - name: Documentation guard
+        run: npm run check:docs
+      - name: Publish (skip when the version already exists)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published; nothing to do"
+            exit 0
+          fi
+          npm publish --access public

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Super Cards",
+    "description": "The assistant answers structured questions with native UI cards — metric grids, tables, bar and sparkline charts, timelines, callouts and action buttons — rendered inline in the conversation instead of a Markdown wall. Cards are reconstructed from the session log, so they survive replay and resume."
+  }
+}
