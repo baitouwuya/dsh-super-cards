@@ -99,7 +99,7 @@ Design details are in [SPEC.md](SPEC.md) (behavior contract) and [ARCHITECTURE.m
 
 ## Status
 
-Version 1.0.0, verified on DSH 0.2.2-rc.1 (cordis 4.1.0), 242/242 tests pass (`npm test`,
+Version 0.12.2, verified on DSH 0.2.2-rc.1 (cordis 4.1.0), 242/242 tests pass (`npm test`,
 including Host/Client parity cases and the documentation guard). Performance numbers and known
 tradeoffs are in [internals](docs/en/internals.md).
 

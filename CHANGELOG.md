@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-11-05
+## 0.12.2 — 2026-11-05
 
 First public release. Requires DeepSeek Harness `0.2.2-rc.1` (cordis `4.1.0`) or newer.
 
