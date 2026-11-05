@@ -86,7 +86,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `text` | `{type:"text", text, muted?:boolean}` | paragraph; inline marks allowed |
 | `heading` | `{type:"heading", text, level?:1\|2\|3}` | section heading |
 | `callout` | `{type:"callout", tone?, title?, text}` | tinted notice box |
-| `stats` | `{type:"stats", items:[{label, value:string\|number, hint?, delta?, tone?}]}` | metric grid (2–4 per row) |
+| `stats` | `{type:"stats", items:[{label, value:string\|number, hint?, delta?, tone?}]}` | metric grid; the renderer picks a base column count (1–5) so the last row is never one lonely tile — 6 items read 3+3 — and container queries fold it back on a narrow card (last tile takes the row when the count is odd) |
 | `table` | `{type:"table", columns:string[], rows:(string\|number\|null)[][], align?:("left"\|"center"\|"right")[], caption?}` | first column often a label |
 | `keyvalue` | `{type:"keyvalue", items:[{key, value}], columns?:1\|2}` | spec sheet |
 | `list` | `{type:"list", ordered?:boolean, items:string[]}` | bullets / numbered |

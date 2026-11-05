@@ -52,7 +52,7 @@ function loadClient() {
 }
 
 const client = loadClient()
-const { extractSpec, normalizeSpec, normalizeBlock, parseInline, safeHref, contentText, renderBlock, listFlows, card, row, boundary, actions, code, key, slot, ns, renderUiCallArgs, readPlacement, resolveStatus, normalizeControls, readControlValues, normalizeLive, selectDockCard, selectBoardConversion, inlineDefinition, inline, dock, turnTailBoard, selectTailCards, turnTailCards, controls, closed } = client.__test
+const { extractSpec, normalizeSpec, normalizeBlock, parseInline, safeHref, contentText, renderBlock, listFlows, statColumns, card, row, boundary, actions, code, key, slot, ns, renderUiCallArgs, readPlacement, resolveStatus, normalizeControls, readControlValues, normalizeLive, selectDockCard, selectBoardConversion, inlineDefinition, inline, dock, turnTailBoard, selectTailCards, turnTailCards, controls, closed } = client.__test
 
 // ---------------------------------------------------------------------------
 // Tiny element-tree helpers (the stub elements are plain objects)
@@ -3303,6 +3303,37 @@ test('the card header names the auto layout only on a derived card', () => {
 
   const manual = card({ phase: 'start', block: { argsRaw: JSON.stringify(CANONICAL) }, t: (token) => token })
   assert.equal(findOne(manual, (node) => hasClass(node, 'dsh-sc-auto')), null)
+})
+
+test('stats pick a column count that never leaves one tile alone', () => {
+  // One row for the small, natural cases.
+  assert.equal(statColumns(1), 1)
+  assert.equal(statColumns(2), 2)
+  assert.equal(statColumns(3), 3)
+  assert.equal(statColumns(4), 4)
+  // Six metrics read 3+3 rather than 5+1.
+  assert.equal(statColumns(5), 3)
+  assert.equal(statColumns(6), 3)
+  assert.equal(statColumns(7), 4)
+  assert.equal(statColumns(8), 4)
+  assert.equal(statColumns(9), 5)
+  assert.equal(statColumns(12), 4)
+  // Defensive input still yields a usable grid.
+  assert.equal(statColumns(0), 1)
+  assert.equal(statColumns(undefined), 1)
+
+  const six = Array.from({ length: 6 }, (_, index) => ({ label: 'k' + index, value: index }))
+  const tree = mount(renderBlock(normalizeBlock({ type: 'stats', items: six }), 'stats', { t: (token) => token }))
+  assert.equal(tree.props['data-cols'], '3')
+  assert.equal(findAll(tree, (node) => hasClass(node, 'dsh-sc-stat')).length, 6)
+
+  const two = mount(renderBlock(normalizeBlock({ type: 'stats', items: six.slice(0, 2) }), 'stats', { t: (token) => token }))
+  assert.equal(two.props['data-cols'], '2')
+
+  const css = client.__test.css
+  assert.match(css, /\.dsh-sc-stats\[data-cols="3"\] \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/u)
+  assert.match(css, /\.dsh-sc-stats\[data-cols\] > \.dsh-sc-stat:last-child:nth-child\(odd\) \{ grid-column: span 2; \}/u)
+  assert.match(css, /\.dsh-sc-stat-value \{[^}]*word-break: keep-all;/u)
 })
 
 test('a long list flows into columns on a wide card, a short or prose list does not', () => {

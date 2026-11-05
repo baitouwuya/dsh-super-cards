@@ -640,6 +640,32 @@ window.__ModuleLoader__.load({
   grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
   gap: 8px;
 }
+/* KPI rows: the renderer picks a base count that never leaves one tile alone,
+   and these fold it back on a narrow card instead of squeezing five numbers
+   into phone width. */
+.dsh-sc-stats[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dsh-sc-stats[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dsh-sc-stats[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dsh-sc-stats[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@container (max-width: 1080px) {
+  .dsh-sc-stats[data-cols="5"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container (max-width: 860px) {
+  .dsh-sc-stats[data-cols="4"],
+  .dsh-sc-stats[data-cols="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 600px) {
+  .dsh-sc-stats[data-cols="3"],
+  .dsh-sc-stats[data-cols="4"],
+  .dsh-sc-stats[data-cols="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* An odd count leaves one tile alone in a two-column row; give it the row
+     instead of a hole beside it. */
+  .dsh-sc-stats[data-cols] > .dsh-sc-stat:last-child:nth-child(odd) { grid-column: span 2; }
+}
+@container (max-width: 430px) {
+  .dsh-sc-stats[data-cols] { grid-template-columns: minmax(0, 1fr); }
+  .dsh-sc-stats[data-cols] > .dsh-sc-stat:last-child:nth-child(odd) { grid-column: auto; }
+}
 .dsh-sc-stat {
   min-width: 0;
   padding: 10px 12px;
@@ -648,7 +674,7 @@ window.__ModuleLoader__.load({
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 3%, var(--dsw-alias-bg-layer-1));
 }
 .dsh-sc-stat-label { font-size: 11.5px; font-weight: 500; line-height: 1.35; color: var(--dsw-alias-label-secondary); }
-.dsh-sc-stat-line { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.dsh-sc-stat-line { display: flex; align-items: baseline; gap: 7px; min-width: 0; flex-wrap: wrap; }
 .dsh-sc-stat-value {
   font-size: 22px;
   line-height: 1.2;
@@ -656,9 +682,14 @@ window.__ModuleLoader__.load({
   letter-spacing: -0.01em;
   color: var(--dsw-alias-label-primary);
   font-variant-numeric: tabular-nums;
+  /* A value is a datum, not prose: it wraps between its words ("1503 通过")
+     instead of splitting a word ("通/过") when the tile is tight. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 .dsh-sc-stat[data-toned="1"] .dsh-sc-stat-value { color: var(--dsh-sc-tone, var(--dsw-alias-label-primary)); }
-.dsh-sc-stat-delta { font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
+.dsh-sc-stat-delta { font-size: 11.5px; color: var(--dsw-alias-label-secondary); word-break: keep-all; }
 .dsh-sc-stat[data-toned="1"] .dsh-sc-stat-delta { color: var(--dsh-sc-tone, var(--dsw-alias-label-secondary)); }
 .dsh-sc-stat-hint { margin-top: 2px; font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
 .dsh-sc-tablewrap {
@@ -1506,7 +1537,6 @@ ${COLUMN_RATIO_CSS}
 }
 @media (max-width: 520px) {
   .dsh-sc-card { padding: 15px; border-radius: 14px; }
-  .dsh-sc-stats { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
   .dsh-sc-kv { grid-template-columns: 1fr; }
   .dsh-sc-links { grid-template-columns: 1fr; }
   .dsh-sc-pie { grid-template-columns: 104px minmax(0, 1fr); gap: 12px; }
@@ -5989,6 +6019,28 @@ ${COLUMN_RATIO_CSS}
     }
 
     /**
+     * How many KPI tiles share a row at the widest card the stylesheet allows.
+     * The count is picked so the last row is never a single lonely tile — six
+     * metrics read 3+3 rather than 5+1 — while a row of two to four keeps its
+     * natural shape. Narrow cards fold this base count back down in CSS.
+     *
+     * @param {number} count - number of stat items.
+     * @returns {number} base column count (1..5).
+     */
+    function statColumns(count) {
+      if (!Number.isFinite(count) || count < 1) return 1
+      const total = Math.trunc(count)
+      if (total === 1) return 1
+      if (total <= 4) return total
+      const widest = Math.min(5, Math.ceil(total / 2))
+      for (let cols = widest; cols >= 2; cols -= 1) {
+        const rest = total % cols
+        if (rest === 0 || rest * 2 >= cols) return cols
+      }
+      return Math.min(total, 5)
+    }
+
+    /**
      * Render one `stats` block. Extracted into the BLOCK_IMPL registry.
      * @param {any} block - normalized block.
      * @param {string} key - React key.
@@ -5998,7 +6050,7 @@ ${COLUMN_RATIO_CSS}
     function renderStatsBlock(block, key, context) {
       return h(
         'div',
-        { key, className: PREFIX + 'stats' },
+        { key, className: PREFIX + 'stats', 'data-cols': String(statColumns(block.items.length)) },
         block.items.map((item, index) =>
           h(
             'div',
@@ -10896,6 +10948,7 @@ ${COLUMN_RATIO_CSS}
       parseSpecJson,
       renderBlock,
       listFlows,
+      statColumns,
       renderUiCallArgs,
       renderUiCallId,
       sparkBlock: SparklineBlock,

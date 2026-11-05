@@ -35,7 +35,8 @@
 ## Metrics and numbers
 
 - `stats` metric grid: `{"type":"stats","items":[{"label":"Pod","value":"12/12","tone":"success"}]}`. `value` can be a number or short string; `delta`, `hint`, and `tone` are optional.
-- `keyvalue` spec sheet: `{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`. `columns` takes 1 or 2.
+
+  The column count comes from the item count so the last row is never a single lonely tile (six items read 3+3); on a narrow card it folds to two columns or one, and an odd count lets the last tile take the whole row.- `keyvalue` spec sheet: `{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`. `columns` takes 1 or 2.
 - `progress` progress bars: `{"type":"progress","items":[{"label":"迁移","value":0.72}]}`. `value` is between 0 and 1; 1 renders a checkmark.
 - `bars` bar chart: `{"type":"bars","items":[{"label":"api","value":42},{"label":"web","value":18}]}`. `direction: "vertical"` makes a column chart, suitable for a small set of categories.
 - `sparkline` trend line: `{"type":"sparkline","values":[212,199,187,190],"unit":"ms"}`. `labels` count must match `values`.

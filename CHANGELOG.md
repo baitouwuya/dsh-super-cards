@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.4 — 2026-11-05
+
+### Changed
+
+- `stats` rows are balanced: the renderer picks a base column count from the item count, so six
+  metrics read 3+3 instead of 5+1, and a container query folds the row back on narrow cards
+  (two columns, then one); an odd count lets the last tile take the whole row rather than sit in
+  a half-empty one.
+- A stat value is a datum, not prose: `word-break: keep-all` keeps "1503 通过" from splitting
+  into "通/过" when a tile is tight, and the value/delta line wraps between them instead of
+  squeezing the number.
+
 ## 0.12.3 — 2026-11-05
 
 ### Changed

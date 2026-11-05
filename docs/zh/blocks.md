@@ -37,6 +37,7 @@
 ## 指标与数字
 
 - `stats` 指标网格：`{"type":"stats","items":[{"label":"Pod","value":"12/12","tone":"success"}]}`。`value` 可以是数字或短字符串，`delta`、`hint`、`tone` 可选。
+  列数按条数算，避免最后一行只剩一张卡（6 条读作 3+3）；窄卡片上自动折成两列或一列，奇数条时最后一张占满整行。
 - `keyvalue` 规格清单：`{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`。`columns` 取 1 或 2。
 - `progress` 进度条：`{"type":"progress","items":[{"label":"迁移","value":0.72}]}`。`value` 在 0 到 1 之间，1 渲染成勾。
 - `bars` 条形图：`{"type":"bars","items":[{"label":"api","value":42},{"label":"web","value":18}]}`。`direction: "vertical"` 变成柱状图，适合少量类别。
