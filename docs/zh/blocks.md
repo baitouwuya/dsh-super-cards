@@ -53,6 +53,7 @@
 ## 结构与关系
 
 - `list` 列表：`{"type":"list","ordered":true,"items":["构建","测试"]}`。`ordered` 控制有序与无序。
+  宽卡片上，6 条以上且每条不超过 220 字的列表会自动分栏（最少 21rem 一栏，窄列里自动回到单栏），不再把右侧留空。
 - `tree` 层级树：`{"type":"tree","nodes":[{"label":"src","children":[{"label":"client.js"}]}]}`。节点可带 `note`、`badge`、`tone`。
 - `diagram` 图表：`{"type":"diagram","kind":"flowchart","nodes":[{"id":"a","label":"请求"},{"id":"b","label":"部署"}],"edges":[{"from":"a","to":"b"}]}`。`kind` 取 `flowchart`、`state`、`sequence`、`class`、`er`；一张卡只放一个图。
 - `timeline` 时间线：`{"type":"timeline","items":[{"title":"构建","time":"14:02"}]}`。`text`、`time`、`tone` 可选。

@@ -473,6 +473,11 @@ window.__ModuleLoader__.load({
   - `preparing`: `block.argsRaw` does not exist; render a skeleton card (shimmer lines).
   - When `phase==='result'` and `block.isError`, render a small error card using the text in
     `block.content` (join text blocks) — this is the tool error message, not a UI spec.
+  - An args string that cannot become a card renders a warn notice that names the failure:
+    `reason:'empty'` (no arguments at all — a call rejected before dispatch reaches the row
+    with `arguments: {}`, for example when `render_ui` is not directly callable in this preset),
+    `reason:'parse'` (invalid JSON; the parser message rides along as `detail`), and
+    `reason:'shape'` (parsed, but nothing renderable). Never a blanket "invalid spec".
   - Never throw. Wrap the card in a class ErrorBoundary whose fallback is a minimal card with
     localized "UI 渲染失败" copy (the app must not blank the slot).
 - Rendering rules:
@@ -486,6 +491,15 @@ window.__ModuleLoader__.load({
   - Typography inherits host: no font-family override except `code`/`sparkline` monospace.
     Sizes: title 17px/700, subtitle 12.5px secondary, body 14px/1.6, table 13px, code 12.5px;
     section headings 18px/700 (level 1, with a brand bar) and 16px/700 (level 2).
+  - Prose-shaped blocks (`text`, `keyvalue`, `list`) keep one reading measure —
+    `--dsh-sc-measure: 62ch` (~31 CJK characters a line) — while blocks that scale with
+    their frame (`table`, charts, `columns`) take the full card width.
+  - A `list` with at least 6 items whose longest item is at most 220 characters may flow
+    into columns: `display:grid` with `repeat(auto-fit, minmax(min(100%, 21rem), 1fr))`,
+    so a wide card spends the spare width on more columns instead of one ragged line and
+    a hole beside it, and a list inside a narrow `columns` cell still stacks. Ordered
+    lists flow too — a grid keeps DOM order left to right. Items of a longer list stay
+    stacked (a paragraph in a bullet wants one column).
   - Tables: full width, sticky-free, first row is `<th scope="col">`, numeric-looking cells
     right-aligned when `align` says so; horizontal scroll inside the card for wide tables.
   - Bar chart / sparkline: hand-written SVG (no chart library, no external requests), theme

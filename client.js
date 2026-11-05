@@ -230,6 +230,9 @@ window.__ModuleLoader__.load({
       'error.title': '卡片生成失败',
       'error.render': 'UI 渲染失败',
       'error.invalid': 'UI 规格无效，无法显示该卡片。',
+      'error.emptyArgs': '这次调用没有携带参数，所以没有卡片内容——render_ui 在当前模式下可能需要在 run_code 里调用，也可能参数在记录前就中断了。',
+      'error.parseArgs': '调用参数不是合法的 JSON，无法还原这张卡片。',
+      'error.emptySpec': '参数里没有可渲染的区块（blocks），所以这张卡片是空的。',
       'error.unknown': '未知错误',
       'error.missingCall': '调用参数已不在会话窗口中，无法恢复该卡片。',
       'empty': '没有可显示的内容。',
@@ -339,6 +342,9 @@ window.__ModuleLoader__.load({
       'error.title': 'Could not render the card',
       'error.render': 'UI render failed',
       'error.invalid': 'The UI spec is invalid, so this card cannot be displayed.',
+      'error.emptyArgs': 'This call carried no arguments, so there is no card to show — render_ui may need to be called from inside run_code in this mode, or the arguments were cut off before they were recorded.',
+      'error.parseArgs': 'The call arguments are not valid JSON, so this card cannot be restored.',
+      'error.emptySpec': 'The arguments carry no renderable blocks, so this card is empty.',
       'error.unknown': 'Unknown error',
       'error.missingCall': 'The call arguments are no longer in the session window, so this card cannot be restored.',
       'empty': 'Nothing to display.',
@@ -473,6 +479,10 @@ window.__ModuleLoader__.load({
   font-size: 13.5px;
   line-height: 1.55;
   overflow-wrap: anywhere;
+  /* One reading measure for every prose-shaped block: ~31 CJK characters a
+     line. Blocks that can spend spare width (tables, charts, columns) ignore
+     it; blocks that cannot (text, keyvalue, list) keep lines comfortable. */
+  --dsh-sc-measure: 62ch;
 }
 .dsh-sc-head {
   display: flex;
@@ -557,7 +567,7 @@ window.__ModuleLoader__.load({
 .dsh-sc-card--relaxed .dsh-sc-callout { padding: 13px 15px; }
 .dsh-sc-text {
   margin: 0;
-  max-width: 62ch;
+  max-width: var(--dsh-sc-measure, 62ch);
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--dsw-alias-label-primary);
@@ -688,7 +698,7 @@ window.__ModuleLoader__.load({
 .dsh-sc-caption { margin-top: 7px; font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .dsh-sc-kv {
   display: grid;
-  max-width: 62ch;
+  max-width: var(--dsh-sc-measure, 62ch);
   /* Adaptive by available width: three facts per row in a full card, one in a
      narrow column, so a spec sheet never squeezes its keys. */
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
@@ -701,11 +711,24 @@ window.__ModuleLoader__.load({
 .dsh-sc-list {
   margin: 0;
   padding-left: 18px;
-  max-width: 62ch;
+  max-width: var(--dsh-sc-measure, 62ch);
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--dsw-alias-label-primary);
 }
+/* A list long enough to matter spends the spare width on more columns instead
+   of one ragged measure and a hole beside it. The grid chooses the column
+   count from its own width, so a list inside a narrow columns cell keeps
+   stacking without a second rule; items never get narrower than 21rem. */
+.dsh-sc-list[data-flow="1"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  gap: 3px 40px;
+  max-width: none;
+  padding-left: 20px;
+}
+.dsh-sc-list[data-flow="1"] .dsh-sc-li { break-inside: avoid; }
+.dsh-sc-list[data-flow="1"] .dsh-sc-li + .dsh-sc-li { margin-top: 0; }
 .dsh-sc-list ::marker { color: var(--dsw-alias-label-secondary); }
 .dsh-sc-li { margin: 0; }
 .dsh-sc-li + .dsh-sc-li { margin-top: 3px; }
@@ -1452,6 +1475,15 @@ ${COLUMN_RATIO_CSS}
 }
 .dsh-sc-notice-icon { flex: none; display: inline-flex; width: 16px; height: 16px; }
 .dsh-sc-notice-title { font-size: 13px; font-weight: 600; }
+.dsh-sc-notice-detail {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--dsw-alias-label-secondary);
+  opacity: 0.9;
+  overflow-wrap: anywhere;
+}
 .dsh-sc-notice-text {
   margin-top: 6px;
   font-size: 12.5px;
@@ -5814,15 +5846,37 @@ ${COLUMN_RATIO_CSS}
      *   | { kind: 'missing-call' }
      *   | { kind: 'invalid', detail: string }}
      */
+    /**
+     * Explain why a recorded call cannot become a card. A call rejected before
+     * dispatch (an unknown tool, a mode where only `run_code` is callable) still
+     * reaches the row with `arguments: {}`, and a truncated call keeps an
+     * incomplete string; saying which one happened is more useful than a
+     * blanket "invalid spec".
+     *
+     * @param {unknown} raw - recorded argument text.
+     * @param {{ ok: boolean, error?: string, value?: unknown }} parsed - parse result.
+     * @returns {{ kind: string, reason: string, detail?: string }} extract result.
+     */
+    function invalidExtract(raw, parsed) {
+      if (typeof raw !== 'string' || raw.trim() === '') return { kind: 'invalid', reason: 'empty' }
+      if (!parsed.ok) return { kind: 'invalid', reason: 'parse', detail: parsed.error }
+      const value = parsed.value
+      if (value === null || value === undefined) return { kind: 'invalid', reason: 'empty' }
+      if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+        return { kind: 'invalid', reason: 'empty' }
+      }
+      return { kind: 'invalid', reason: 'shape' }
+    }
+
     function extractSpec(phase, block) {
       try {
         if (phase === 'preparing') return { kind: 'preparing' }
         if (!block || typeof block !== 'object') return { kind: 'invalid', detail: 'missing block' }
         if (phase === 'start') {
           const parsed = parseSpecJson(block.argsRaw)
-          if (!parsed.ok) return { kind: 'invalid', detail: parsed.error }
+          if (!parsed.ok) return invalidExtract(block.argsRaw, parsed)
           const spec = normalizeSpec(parsed.value)
-          if (spec === null) return { kind: 'invalid', detail: 'spec is not an object with blocks' }
+          if (spec === null) return invalidExtract(block.argsRaw, parsed)
           return { kind: 'ready', spec }
         }
         if (phase === 'result') {
@@ -5830,9 +5884,9 @@ ${COLUMN_RATIO_CSS}
           const call = block.call && typeof block.call === 'object' ? block.call : null
           if (call === null || typeof call.argsRaw !== 'string') return { kind: 'missing-call' }
           const parsed = parseSpecJson(call.argsRaw)
-          if (!parsed.ok) return { kind: 'invalid', detail: parsed.error }
+          if (!parsed.ok) return invalidExtract(call.argsRaw, parsed)
           const spec = normalizeSpec(parsed.value)
-          if (spec === null) return { kind: 'invalid', detail: 'spec is not an object with blocks' }
+          if (spec === null) return invalidExtract(call.argsRaw, parsed)
           return { kind: 'ready', spec }
         }
         // Unknown stage: derive from the recorded shape rather than throwing.
@@ -6059,6 +6113,36 @@ ${COLUMN_RATIO_CSS}
     }
 
     /**
+     * Items a list needs before it spends spare width on extra columns. Shorter
+     * lists read better as one block; six is where the second column starts to
+     * carry its own weight.
+     */
+    const LIST_FLOW_MIN_ITEMS = 6
+    /**
+     * Longest item a list still accepts before it stacks. A bullet that is
+     * really a paragraph wants one wide-enough column, not three narrow ones.
+     */
+    const LIST_FLOW_MAX_ITEM = 220
+
+    /**
+     * Whether a `list` block flows into columns on a wide card. The card picks
+     * the column count from its own width, so this only decides whether the
+     * block is allowed to flow at all.
+     *
+     * @param {string[]} items - normalized items.
+     * @returns {boolean}
+     */
+    function listFlows(items) {
+      if (!Array.isArray(items) || items.length < LIST_FLOW_MIN_ITEMS) return false
+      let longest = 0
+      for (const item of items) {
+        const length = typeof item === 'string' ? item.length : 0
+        if (length > longest) longest = length
+      }
+      return longest <= LIST_FLOW_MAX_ITEM
+    }
+
+    /**
      * Render one `list` block. Extracted into the BLOCK_IMPL registry.
      * @param {any} block - normalized block.
      * @param {string} key - React key.
@@ -6068,7 +6152,7 @@ ${COLUMN_RATIO_CSS}
     function renderListBlock(block, key, context) {
       return h(
         block.ordered ? 'ol' : 'ul',
-        { key, className: PREFIX + 'list' },
+        { key, className: PREFIX + 'list', 'data-flow': listFlows(block.items) ? '1' : undefined },
         block.items.map((item, index) =>
           h('li', { key: index, className: PREFIX + 'li' }, richChildren(item, key + 'i' + index)),
         ),
@@ -7168,7 +7252,7 @@ ${COLUMN_RATIO_CSS}
      * @returns {any}
      */
     function NoticeCard(props) {
-      const { t, title, text, tone, isError } = props
+      const { t, title, text, tone, isError, detail } = props
       const role = isError === true ? 'alert' : 'status'
       return h(
         'section',
@@ -7186,6 +7270,9 @@ ${COLUMN_RATIO_CSS}
           h('span', { className: PREFIX + 'notice-title' }, title),
         ),
         text ? h('div', { className: PREFIX + 'notice-text' }, text) : null,
+        typeof detail === 'string' && detail !== ''
+          ? h('div', { className: PREFIX + 'notice-detail' }, detail.slice(0, 160))
+          : null,
       )
     }
 
@@ -7253,7 +7340,10 @@ ${COLUMN_RATIO_CSS}
         return h(NoticeCard, { t, title: t('error.title'), text: t('error.missingCall'), tone: 'warn' })
       }
       if (extracted.kind === 'invalid') {
-        return h(NoticeCard, { t, title: t('error.title'), text: t('error.invalid'), tone: 'warn' })
+        const key = extracted.reason === 'empty' ? 'error.emptyArgs'
+          : extracted.reason === 'parse' ? 'error.parseArgs'
+            : extracted.reason === 'shape' ? 'error.emptySpec' : 'error.invalid'
+        return h(NoticeCard, { t, title: t('error.title'), text: t(key), detail: extracted.detail, tone: 'warn' })
       }
 
       const spec = extracted.spec
@@ -10805,6 +10895,7 @@ ${COLUMN_RATIO_CSS}
       contentText,
       parseSpecJson,
       renderBlock,
+      listFlows,
       renderUiCallArgs,
       renderUiCallId,
       sparkBlock: SparklineBlock,

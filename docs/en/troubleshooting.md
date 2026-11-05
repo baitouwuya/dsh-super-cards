@@ -20,6 +20,7 @@ First confirm how this call happened:
 - Searching the application's bundled `app.asar` for `render_ui` and getting 0 hits does not mean there is no renderer: the renderer is a local plugin and was never inside the application bundle. To tell whether it is loaded, look at the occupant list of `tool.call.toolview`.
 - When card rendering fails, the error boundary shows a fallback card "UI render failed" instead of blanking the conversation row; report the console error together with a screenshot to locate it.
 - When the tool call returns an error, that row shows a small error card; the error text is the reason starting with `render_ui:`.
+- When the card slot shows only a "could not render" notice, its wording names the cause: **no arguments** — the call carried no `arguments` at all (typical when `render_ui` is called directly in a preset where only `run_code` is callable, so the call is rejected before dispatch); **not valid JSON** — the arguments were truncated or malformed, with the parser message underneath; **no renderable blocks** — the JSON parses but carries neither `blocks` nor `content`.
 
 ## Blocks dropped or type unknown
 

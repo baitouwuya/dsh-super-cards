@@ -51,6 +51,7 @@
 ## Structure and relations
 
 - `list` list: `{"type":"list","ordered":true,"items":["构建","测试"]}`. `ordered` controls ordered vs unordered.
+  On a wide card a list of at least six items, none longer than 220 characters, flows into columns (never narrower than 21rem each, and back to one column inside a narrow cell) instead of leaving the right side empty.
 - `tree` hierarchy: `{"type":"tree","nodes":[{"label":"src","children":[{"label":"client.js"}]}]}`. Nodes can carry `note`, `badge`, and `tone`.
 - `diagram` diagram: `{"type":"diagram","kind":"flowchart","nodes":[{"id":"a","label":"请求"},{"id":"b","label":"部署"}],"edges":[{"from":"a","to":"b"}]}`. `kind` takes `flowchart`, `state`, `sequence`, `class`, or `er`; one card holds one diagram.
 - `timeline` timeline: `{"type":"timeline","items":[{"title":"构建","time":"14:02"}]}`. `text`, `time`, and `tone` are optional.

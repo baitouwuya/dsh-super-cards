@@ -52,7 +52,7 @@ function loadClient() {
 }
 
 const client = loadClient()
-const { extractSpec, normalizeSpec, normalizeBlock, parseInline, safeHref, contentText, renderBlock, card, row, boundary, actions, code, key, slot, ns, renderUiCallArgs, readPlacement, resolveStatus, normalizeControls, readControlValues, normalizeLive, selectDockCard, selectBoardConversion, inlineDefinition, inline, dock, turnTailBoard, selectTailCards, turnTailCards, controls, closed } = client.__test
+const { extractSpec, normalizeSpec, normalizeBlock, parseInline, safeHref, contentText, renderBlock, listFlows, card, row, boundary, actions, code, key, slot, ns, renderUiCallArgs, readPlacement, resolveStatus, normalizeControls, readControlValues, normalizeLive, selectDockCard, selectBoardConversion, inlineDefinition, inline, dock, turnTailBoard, selectTailCards, turnTailCards, controls, closed } = client.__test
 
 // ---------------------------------------------------------------------------
 // Tiny element-tree helpers (the stub elements are plain objects)
@@ -788,9 +788,24 @@ test('extractSpec: start parses block.argsRaw', () => {
 test('extractSpec: start with malformed JSON is an invalid card, never a throw', () => {
   const extracted = extractSpec('start', { argsRaw: '{not json' })
   assert.equal(extracted.kind, 'invalid')
+  assert.equal(extracted.reason, 'parse')
   assert.equal(typeof extracted.detail, 'string')
   assert.equal(extractSpec('start', { argsRaw: '' }).kind, 'invalid')
   assert.equal(extractSpec('start', { argsRaw: '"just a string"' }).kind, 'invalid')
+})
+
+test('extractSpec: an invalid card names what is missing', () => {
+  // A call rejected before dispatch reaches the row with `arguments: {}`.
+  assert.deepEqual(extractSpec('start', { argsRaw: '{}' }), { kind: 'invalid', reason: 'empty' })
+  assert.equal(extractSpec('start', { argsRaw: '  ' }).reason, 'empty')
+  assert.equal(extractSpec('start', { argsRaw: 'null' }).reason, 'empty')
+  assert.equal(extractSpec('result', { call: { argsRaw: '{}' }, isError: false }).reason, 'empty')
+  // Parsed but unusable: no blocks, no content.
+  assert.equal(extractSpec('start', { argsRaw: '{"title":"T"}' }).reason, 'shape')
+  // Unparsed: the parser's own message rides along as detail.
+  const truncated = extractSpec('start', { argsRaw: '{"blocks":[{"type":"list"' })
+  assert.equal(truncated.reason, 'parse')
+  assert.match(truncated.detail, /JSON/u)
 })
 
 test('extractSpec: result reads block.call.argsRaw', () => {
@@ -1215,7 +1230,17 @@ test('missing call and invalid spec render notice cards instead of throwing', ()
   assert.equal(textOf(findOne(missing, (node) => hasClass(node, 'dsh-sc-notice-text'))), 'error.missingCall')
 
   const invalid = mount(card({ phase: 'start', block: { argsRaw: '{oops' }, t: (token) => token }))
-  assert.equal(textOf(findOne(invalid, (node) => hasClass(node, 'dsh-sc-notice-text'))), 'error.invalid')
+  assert.equal(textOf(findOne(invalid, (node) => hasClass(node, 'dsh-sc-notice-text'))), 'error.parseArgs')
+  assert.ok(findOne(invalid, (node) => hasClass(node, 'dsh-sc-notice-detail')), 'parse errors show the parser message')
+
+  // An empty call (rejected before dispatch) explains itself instead of claiming an invalid spec.
+  const empty = mount(card({ phase: 'start', block: { argsRaw: '{}' }, t: (token) => token }))
+  assert.equal(textOf(findOne(empty, (node) => hasClass(node, 'dsh-sc-notice-text'))), 'error.emptyArgs')
+  assert.equal(findOne(empty, (node) => hasClass(node, 'dsh-sc-notice-detail')), null)
+
+  // Parsed but blockless: its own message.
+  const shapeless = mount(card({ phase: 'start', block: { argsRaw: '{"title":"T"}' }, t: (token) => token }))
+  assert.equal(textOf(findOne(shapeless, (node) => hasClass(node, 'dsh-sc-notice-text'))), 'error.emptySpec')
 })
 
 test('an empty spec still renders a stable card with an empty notice', () => {
@@ -3278,6 +3303,39 @@ test('the card header names the auto layout only on a derived card', () => {
 
   const manual = card({ phase: 'start', block: { argsRaw: JSON.stringify(CANONICAL) }, t: (token) => token })
   assert.equal(findOne(manual, (node) => hasClass(node, 'dsh-sc-auto')), null)
+})
+
+test('a long list flows into columns on a wide card, a short or prose list does not', () => {
+  const render = (items, ordered) => mount(renderBlock(
+    normalizeBlock({ type: 'list', ordered, items }),
+    'flow',
+    { t: (token) => token },
+  ))
+  const six = Array.from({ length: 6 }, (_, index) => 'item ' + index)
+
+  const flowed = render(six)
+  assert.equal(flowed.type, 'ul')
+  assert.equal(flowed.props['data-flow'], '1', 'six bullets leave the single measure')
+  assert.equal(findAll(flowed, (node) => hasClass(node, 'dsh-sc-li')).length, 6)
+
+  // Five bullets stay stacked: a second column would hold one lonely line.
+  assert.equal(render(six.slice(0, 5)).props['data-flow'], undefined)
+  // A bullet that is really a paragraph reads better in one column.
+  assert.equal(render(six.slice(0, 5).concat(['x'.repeat(221)])).props['data-flow'], undefined)
+  // Ordered lists flow too; the grid keeps DOM order left to right.
+  const ordered = render(six, true)
+  assert.equal(ordered.type, 'ol')
+  assert.equal(ordered.props['data-flow'], '1')
+
+  assert.equal(listFlows(six), true)
+  assert.equal(listFlows([]), false)
+  assert.equal(listFlows(undefined), false)
+
+  // The stylesheet reads one measure token, and the flow rule keys off the attribute.
+  const css = client.__test.css
+  assert.match(css, /--dsh-sc-measure: 62ch/u)
+  assert.match(css, /\.dsh-sc-text \{\n  margin: 0;\n  max-width: var\(--dsh-sc-measure, 62ch\);/u)
+  assert.match(css, /\.dsh-sc-list\[data-flow="1"\] \{\n  display: grid;/u)
 })
 
 test('columns render side by side with an optional label and real nested blocks', () => {

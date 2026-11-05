@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.3 — 2026-11-05
+
+### Changed
+
+- `list` blocks now use the width of a wide card: six or more items (none longer than 220
+  characters) flow into as many columns as fit, at least 21rem each, instead of one ragged
+  62-character line with a hole beside it. A list inside a narrow `columns` cell still
+  stacks, and ordered lists flow too (grid keeps DOM order left to right).
+- The reading measure is one token now (`--dsh-sc-measure: 62ch`) shared by `text`,
+  `keyvalue` and `list`, so the cap is documented in one place.
+
+### Fixed
+
+- A call that never became a card used to show one blanket "UI 规格无效" notice, even when the
+  call had no arguments at all (a `render_ui` call rejected before dispatch in a preset where
+  only `run_code` is callable). The notice now names the cause — empty arguments, invalid JSON
+  (with the parser message underneath), or a spec with no renderable blocks.
+
 ## 0.12.2 — 2026-11-05
 
 First public release. Requires DeepSeek Harness `0.2.2-rc.1` (cordis `4.1.0`) or newer.
