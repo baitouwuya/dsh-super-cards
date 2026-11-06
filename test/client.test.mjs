@@ -3147,6 +3147,50 @@ test('diff marks added, removed, and context lines and summarises the patch', ()
   )
 })
 
+test('a diff is the host DiffBlock when the shell exports it, rebuilt from its lines', () => {
+  const block = normalizeBlock({
+    type: 'diff',
+    title: 'Retry',
+    path: 'src/config.js',
+    lines: [{ kind: 'ctx', text: 'retries: 3,' }, { kind: 'del', text: 'timeout: 30,' }, { kind: 'add', text: 'timeout: 45,' }],
+  })
+  // The host component wants the two sides of the change, not a line list.
+  function DiffBlock() {
+    return null
+  }
+  const primed = captured.factory((id) => {
+    if (id === 'react') return reactStub
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { DiffBlock }
+    throw new Error('unexpected require: ' + id)
+  })
+  const seen = []
+  const t = (token, vars) => (vars === undefined ? token : token + ':' + JSON.stringify(vars))
+  const tree = primed.__test.renderBlock(block, 'df', { t })
+  const host = findOne(tree, (node) => node.type === DiffBlock)
+  assert.ok(host)
+  seen.push(host.props)
+  assert.equal(host.props.className, 'dsh-sc-diff-host')
+  assert.equal(host.props.title, '+1 −1')
+  const patch = host.props.diffs[0]
+  assert.equal(patch.path, 'src/config.js')
+  assert.equal(patch.oldText, 'retries: 3,\ntimeout: 30,')
+  assert.equal(patch.newText, 'retries: 3,\ntimeout: 45,')
+  // Every label the host banner and collapse row read has to be a real string.
+  const labels = host.props.labels
+  assert.deepEqual(Object.keys(labels).sort(), [
+    'codeLabel', 'collapse', 'collapseAria', 'copied', 'copy', 'expand', 'expandAria', 'unwrapLabel', 'wrapLabel',
+  ])
+  assert.equal(labels.expand(12), 'diff.expand:{"count":12}')
+  assert.equal(labels.expandAria(12), 'diff.expandAria:{"count":12}')
+
+  // A patch without a path borrows its title, and the local renderer still
+  // serves a shell without the module.
+  const untitled = primed.__test.renderBlock(normalizeBlock({ type: 'diff', lines: [{ kind: 'add', text: 'x' }] }), 'df2', { t })
+  assert.equal(findOne(untitled, (node) => node.type === DiffBlock).props.diffs[0].path, 'diff.patch')
+  const local = client.__test.renderBlock(normalizeBlock({ type: 'diff', lines: [{ kind: 'add', text: 'x' }] }), 'df3', { t })
+  assert.ok(findOne(local, (node) => hasClass(node, 'dsh-sc-diff-block')))
+})
+
 test('kanban renders columns with cards, badges, counts, and an empty state', () => {
   const block = normalizeBlock({
     type: 'kanban',

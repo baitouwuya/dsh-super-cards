@@ -284,6 +284,13 @@ window.__ModuleLoader__.load({
       'heatmap.less': '少',
       'heatmap.more': '多',
       'tabs.label': '卡片分区',
+      'diff.patch': '差异',
+      'diff.copy': '复制差异',
+      'diff.wrap': '自动换行',
+      'diff.unwrap': '取消换行',
+      'diff.expand': '展开其余 {count} 行',
+      'diff.expandAria': '展开其余 {count} 行差异',
+      'diff.collapseAria': '收起差异',
       'live.label': '实时',
       'live.empty': '暂无消息',
       'live.user': '你',
@@ -394,6 +401,13 @@ window.__ModuleLoader__.load({
       'code.collapse': 'Collapse',
       'spark.label': 'Trend chart',
       'tabs.label': 'Card sections',
+      'diff.patch': 'Diff',
+      'diff.copy': 'Copy diff',
+      'diff.wrap': 'Wrap lines',
+      'diff.unwrap': 'No wrap',
+      'diff.expand': 'Show {count} more lines',
+      'diff.expandAria': 'Expand {count} more diff lines',
+      'diff.collapseAria': 'Collapse diff',
       'live.label': 'Live',
       'live.empty': 'No messages yet',
       'live.user': 'You',
@@ -1282,7 +1296,11 @@ window.__ModuleLoader__.load({
   font-size: 10.5px;
   color: var(--dsw-alias-label-secondary);
 }
-/* Diff: a patch view with added/removed line tints. */
+/* Diff: the host DiffBlock when the shell exports it, the local patch view
+   otherwise. The host draws its own frame with transcript margins, so the card
+   only takes those margins away and keeps the block's width honest. */
+.dsh-sc-diff-host { max-width: 100%; margin: 0; }
+/* The local view is a patch with added/removed line tints. */
 .dsh-sc-diff-block {
   border: 1px solid color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
   border-radius: 12px;
@@ -4959,8 +4977,34 @@ ${COLUMN_RATIO_CSS}
     }
 
     /**
+     * Rebuild the two sides of a patch from its line list.
+     *
+     * A removed line only exists in the old text, an added line only in the new
+     * text, and a context line is on both. That is all a unified diff carries, so
+     * the host's diff engine can regenerate the same hunks from these strings.
+     *
+     * @param {Array<{ kind: string, text: string }>} lines - normalized patch lines.
+     * @returns {{ oldText: string, newText: string }} both sides, joined.
+     */
+    function patchSides(lines) {
+      const before = []
+      const after = []
+      for (const line of lines) {
+        if (line.kind !== 'add') before.push(line.text)
+        if (line.kind !== 'del') after.push(line.text)
+      }
+      return { oldText: before.join('\n'), newText: after.join('\n') }
+    }
+
+    /**
      * Render one `diff` block: a patch view with added/removed line tints and a
-     * +n/−n summary. No syntax highlighting, so it stays theme-neutral.
+     * +n/−n summary.
+     *
+     * The shell's own `DiffBlock` draws it when the frozen module table carries
+     * it, which buys the tinted rows, the copy button, the wrap toggle and the
+     * collapse row without shipping a copy of any of it; the block's line list is
+     * turned back into the two texts that component wants. The local renderer
+     * stays for shells without the module.
      *
      * @param {any} block - normalized block.
      * @param {string} key - React key.
@@ -4970,6 +5014,33 @@ ${COLUMN_RATIO_CSS}
     function renderDiffBlock(block, key, context) {
       const added = block.lines.filter((line) => line.kind === 'add').length
       const removed = block.lines.filter((line) => line.kind === 'del').length
+      const t = context && typeof context.t === 'function' ? context.t : fallbackT
+      const HostDiff = PRIMITIVES && typeof PRIMITIVES.DiffBlock === 'function' ? PRIMITIVES.DiffBlock : null
+      if (HostDiff !== null) {
+        const sides = patchSides(block.lines)
+        if (sides.oldText === '' && sides.newText === '') return null
+        return h(HostDiff, {
+          key,
+          className: PREFIX + 'diff-host',
+          title: '+' + added + ' −' + removed,
+          diffs: [{
+            path: block.path || block.title || t('diff.patch'),
+            oldText: sides.oldText,
+            newText: sides.newText,
+          }],
+          labels: {
+            copy: t('diff.copy'),
+            copied: t('hint.copied'),
+            codeLabel: t('code.label'),
+            wrapLabel: t('diff.wrap'),
+            unwrapLabel: t('diff.unwrap'),
+            collapse: t('code.collapse'),
+            collapseAria: t('diff.collapseAria'),
+            expand: (count) => t('diff.expand', { count }),
+            expandAria: (count) => t('diff.expandAria', { count }),
+          },
+        })
+      }
       return h(
         'div',
         { key, className: PREFIX + 'diff-block' },

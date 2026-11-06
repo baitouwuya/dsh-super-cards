@@ -48,7 +48,7 @@
 ## 表格与看板
 
 - `table` 数据表：`{"type":"table","columns":["服务","状态"],"rows":[["api","healthy"]]}`。`align` 逐列对齐，`caption` 是表下一行。
-- `diff` 代码差异：`{"type":"diff","lines":[{"kind":"del","text":"retries: 3,"},{"kind":"add","text":"retries: 5,"}]}`。`kind` 取 `add`、`del`、`ctx`。
+- `diff` 代码差异：`{"type":"diff","lines":[{"kind":"del","text":"retries: 3,"},{"kind":"add","text":"retries: 5,"}]}`。`kind` 取 `add`、`del`、`ctx`。渲染用宿主的 `DiffBlock`（行首色条、复制差异、自动换行、长差异折叠），把行列表反推成改动前后两段文本交给它；探测不到就退回本地画法。
 - `kanban` 看板：`{"type":"kanban","columns":[{"title":"待办","cards":[{"title":"限流"}]}]}`。卡片可带 `text`、`badges`、`tone`。泳道在宽卡片上横向排列（多了可横向滚动），容器宽度 ≤600px 时改成纵向堆叠，一条泳道一行。
 
 ## 结构与关系

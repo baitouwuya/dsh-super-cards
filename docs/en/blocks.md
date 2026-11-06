@@ -46,7 +46,7 @@
 ## Tables and boards
 
 - `table` data table: `{"type":"table","columns":["服务","状态"],"rows":[["api","healthy"]]}`. `align` is per-column, `caption` is a line below the table.
-- `diff` code diff: `{"type":"diff","lines":[{"kind":"del","text":"retries: 3,"},{"kind":"add","text":"retries: 5,"}]}`. `kind` takes `add`, `del`, or `ctx`.
+- `diff` code diff: `{"type":"diff","lines":[{"kind":"del","text":"retries: 3,"},{"kind":"add","text":"retries: 5,"}]}`. `kind` takes `add`, `del`, or `ctx`. It renders with the host `DiffBlock` — accent bars, copy, wrap, collapse — which means turning the line list back into the before/after texts it wants; the local renderer serves shells without it.
 - `kanban` board: `{"type":"kanban","columns":[{"title":"待办","cards":[{"title":"限流"}]}]}`. Cards can carry `text`, `badges`, and `tone`. Lanes sit side by side on a wide card (scrolling when there are many) and stack one per row once the container is 600px or narrower.
 
 ## Structure and relations

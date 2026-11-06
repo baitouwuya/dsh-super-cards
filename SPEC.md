@@ -97,7 +97,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `pie` | `{type:"pie", title?, items:[{label, value:number, tone?}], unit?, donut?:boolean}` | donut by default, filled pie with `donut:false`; ≤8 slices, values are shares of their own total |
 | `tree` | `{type:"tree", title?, nodes:[{label, note?, badge?, tone?, children?}]}` | bounded hierarchy (4 levels) |
 | `heatmap` | `{type:"heatmap", title?, columns?, items:[{label?, value:number, tone?}], unit?, max?}` | intensity grid, row-major; the foot line names the range (first and last label) and the total, and joins a Latin unit with a space ("7 ms") but a CJK or `%` unit directly ("7次", "7%") |
-| `diff` | `{type:"diff", title?, path?, language?, lines:[{kind:"add"\|"del"\|"ctx", text}]}` | patch view with tints |
+| `diff` | `{type:"diff", title?, path?, language?, lines:[{kind:"add"\|"del"\|"ctx", text}]}` | host `DiffBlock` patch view (local tints without it) |
 | `kanban` | `{type:"kanban", title?, columns:[{title, tone?, cards:[{title, text?, badges?, tone?}]}]}` | board, horizontal scroll; under a 600px container the lanes stack one per row instead of scrolling out of view |
 | `tabs` | `{type:"tabs", title?, items:[{label, blocks:[Block,...]}]}` | host `SegmentedTabs` row over one visible pane |
 | `columns` | `{type:"columns", title?, items:[{label?, blocks:[Block,...]}], weights?:number[]}` | 2–3 block groups side by side; `weights` gives each column 1–3 fr shares (one integer per column, default equal, a mismatched list is ignored). The grid auto-fits and a container query folds a weighted grid back to one column under 560px. A column may not nest a tab or another column |
