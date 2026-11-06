@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.14.0 — 2026-11-06
+
+### Changed
+
+- The `tabs` row is the shell's own `SegmentedTabs` when the frozen module table exports it:
+  the host owns the sliding indicator, the roving tabindex and the arrow keys, so switching
+  tabs in a card works like switching them anywhere else in the app. The card keeps the pane —
+  a pane is just more blocks — and the frame that used to wrap it is gone, so the pane's blocks
+  line up with the rest of the card. Shells without the module get a local row with the same
+  markup and the same look.
+- The host control is a grid of equal segments, which squeezes long labels into an ellipsis in
+  a narrow card, so under a 520px container the row becomes a wrapping flex line: every label
+  stays whole, the selected tab carries the fill itself (the indicator only tracks equal
+  segments), and the local row follows the same rule.
+- A settings row takes the host `SegmentedControl`'s geometry — the tinted
+  `interactive-bg-hover` tray, the raised indicator on the theme's soft elevation, the same
+  28px height and the same metrics — but not the component: that control is a tab/tabpanel
+  pair and a setting has no panel, so `controls` keeps a `group` of pressed toggles. The tray
+  was nearly invisible against a white card before, and the selected segment now reads as a
+  raised pill in both themes.
+- A `diff` is the host `DiffBlock`. The block's line list is turned back into the before/after
+  texts that component wants — a removed line only exists in the old text, an added line only
+  in the new one, and a context line sits on both — and its own engine regenerates the hunks.
+  That buys the tinted rows with accent bars, the copy-diff button, the wrap toggle and the
+  collapse row for long patches; the `+n/−n` summary moves into the banner next to the language
+  name, and the block keeps the host's code typography so it follows the app's code-font-size
+  setting. A shell that predates the primitives package still renders the local patch view.
+
 ## 0.13.0 — 2026-11-06
 
 ### Changed

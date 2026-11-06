@@ -1,6 +1,6 @@
 {
   "name": "dsh-super-cards",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": false,
   "type": "module",
   "description": "DeepSeek Harness (DSH) Web plugin: the assistant answers with native UI cards — metrics, tables, charts, timelines and clickable next steps — instead of Markdown.",
