@@ -1344,6 +1344,12 @@ window.__ModuleLoader__.load({
   border-radius: 12px;
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 2%, var(--dsw-alias-bg-layer-1));
 }
+/* A 190px-minimum column cannot share a narrow card: the board scrolls out of
+   sight instead of reading. Under 600px the lanes stack, one per row. */
+@container (max-width: 600px) {
+  .dsh-sc-kanban { flex-direction: column; overflow-x: visible; }
+  .dsh-sc-kanban-col { flex: 0 0 auto; }
+}
 .dsh-sc-kanban-head {
   display: flex;
   align-items: baseline;

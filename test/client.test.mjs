@@ -3408,6 +3408,17 @@ test('facts are a tile grid when short and a row sheet when long', () => {
   assert.match(css, /\.dsh-sc-kv \{[^}]*max-width: min\(100%, 84ch\);/u)
 })
 
+test('a kanban stacks its lanes once the card is narrow', () => {
+  const css = client.__test.css
+  assert.match(css, /@container \(max-width: 600px\) \{[^@]*\.dsh-sc-kanban \{ flex-direction: column; overflow-x: visible; \}/u)
+  assert.match(css, /@container \(max-width: 600px\) \{[^@]*\.dsh-sc-kanban-col \{ flex: 0 0 auto; \}/u)
+  // The stack rule has to come after the 190px basis it overrides.
+  assert.ok(
+    css.indexOf('.dsh-sc-kanban-col { flex: 0 0 auto; }') > css.indexOf('flex: 1 0 190px;'),
+    'the narrow rule must follow the lane basis',
+  )
+})
+
 test('a heatmap names the range it covers on its foot line', () => {
   const render = (block) => mount(renderBlock(normalizeBlock(block), 'heat', { t: (token) => token }))
   const rangeOf = (tree) => findAll(tree, (node) => hasClass(node, 'dsh-sc-heatmap-range'))[0]
