@@ -1250,12 +1250,29 @@ window.__ModuleLoader__.load({
 .dsh-sc-heat-cell[data-level='4'] {
   background: color-mix(in srgb, var(--dsh-sc-tone, var(--dsw-alias-label-primary)) 82%, transparent);
 }
+/* One foot line: what the run covers on the left, the color key on the right,
+   so neither end of the chart row is wasted. */
+.dsh-sc-heatmap-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+.dsh-sc-heatmap-range {
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--dsw-alias-label-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .dsh-sc-heatmap-legend {
   display: flex;
   align-items: center;
+  flex: none;
   justify-content: flex-end;
   gap: 3px;
-  margin-top: 8px;
 }
 .dsh-sc-heatmap-legend .dsh-sc-heat-cell { width: 10px; flex: none; }
 .dsh-sc-heatmap-scale-label {
@@ -4812,6 +4829,20 @@ ${COLUMN_RATIO_CSS}
      * @param {any} context - render context (`t`).
      * @returns {any}
      */
+    /**
+     * Join a number and its unit the way a person writes it: `%`, `°`, and CJK
+     * units attach directly, Latin units take a space ("7 ms" but "7次").
+     *
+     * @param {string} text - already formatted number or range.
+     * @param {string} [unit] - unit from the block, possibly padded.
+     * @returns {string} the joined text.
+     */
+    function withUnit(text, unit) {
+      const suffix = typeof unit === 'string' ? unit.trim() : ''
+      if (suffix === '') return text
+      return /^[%°％]$/u.test(suffix) || /[\u3000-\u9fff]/u.test(suffix) ? text + suffix : text + ' ' + suffix
+    }
+
     function renderHeatmapBlock(block, key, context) {
       const t = context && typeof context.t === 'function' ? context.t : fallbackT
       const max = typeof block.max === 'number' && block.max > 0
@@ -4820,6 +4851,16 @@ ${COLUMN_RATIO_CSS}
       const columns = block.columns || Math.min(14, Math.max(1, block.items.length))
       const unit = block.unit || ''
       const total = block.items.reduce((sum, item) => sum + item.value, 0)
+      // Only the ends matter on one foot line; the cells keep the full label in
+      // their own title attribute.
+      const labelled = block.items
+        .map((item) => (typeof item.label === 'string' ? item.label : ''))
+        .filter((label) => label !== '')
+      const totalText = withUnit(formatNumber(total), unit)
+      const rangeText = labelled.length === 0
+        ? undefined
+        : (labelled.length === 1 ? labelled[0] : labelled[0] + ' – ' + labelled[labelled.length - 1])
+          + ' · ' + totalText
       return h(
         'div',
         { key, className: PREFIX + 'heatmap-block' },
@@ -4830,26 +4871,35 @@ ${COLUMN_RATIO_CSS}
             className: PREFIX + 'heatmap',
             style: { '--dsh-sc-heat-cols': String(columns) },
             role: 'img',
-            'aria-label': t('heatmap.label') + ' · ' + block.items.length + ' · ' + formatNumber(total) + unit,
+            'aria-label': t('heatmap.label') + ' · ' + block.items.length + ' · ' + withUnit(formatNumber(total), unit),
           },
           block.items.map((item, index) => h('span', {
             key: index,
             className: PREFIX + 'heat-cell',
             'data-level': String(heatLevel(item.value, max)),
             style: item.tone === 'neutral' ? undefined : toneStyle(accentVar(item.tone)),
-            title: (item.label ? item.label + ' · ' : '') + formatNumber(item.value) + unit,
+            title: (item.label ? item.label + ' · ' : '') + withUnit(formatNumber(item.value), unit),
           })),
         ),
         h(
           'div',
-          { className: PREFIX + 'heatmap-legend', 'aria-hidden': 'true' },
-          h('span', { className: PREFIX + 'heatmap-scale-label' }, t('heatmap.less')),
-          [0, 1, 2, 3, 4].map((level) => h('span', {
-            key: level,
-            className: PREFIX + 'heat-cell',
-            'data-level': String(level),
-          })),
-          h('span', { className: PREFIX + 'heatmap-scale-label' }, t('heatmap.more')),
+          { className: PREFIX + 'heatmap-foot' },
+          // Fourteen anonymous cells say nothing: name the range and the total
+          // on the left of the foot line, where the legend leaves room.
+          rangeText === undefined
+            ? null
+            : h('span', { className: PREFIX + 'heatmap-range' }, rangeText),
+          h(
+            'div',
+            { className: PREFIX + 'heatmap-legend', 'aria-hidden': 'true' },
+            h('span', { className: PREFIX + 'heatmap-scale-label' }, t('heatmap.less')),
+            [0, 1, 2, 3, 4].map((level) => h('span', {
+              key: level,
+              className: PREFIX + 'heat-cell',
+              'data-level': String(level),
+            })),
+            h('span', { className: PREFIX + 'heatmap-scale-label' }, t('heatmap.more')),
+          ),
         ),
       )
     }

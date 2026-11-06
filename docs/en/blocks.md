@@ -41,7 +41,7 @@
 - `bars` bar chart: `{"type":"bars","items":[{"label":"api","value":42},{"label":"web","value":18}]}`. `direction: "vertical"` makes a column chart, suitable for a small set of categories.
 - `sparkline` trend line: `{"type":"sparkline","values":[212,199,187,190],"unit":"ms"}`. `labels` count must match `values`.
 - `pie` pie/donut chart: `{"type":"pie","items":[{"label":"api","value":62},{"label":"web","value":38}]}`. Default is donut; `donut: false` makes solid.
-- `heatmap` heatmap: `{"type":"heatmap","columns":14,"items":[{"label":"周一","value":3}]}`. `max` can fix the intensity scale.
+- `heatmap` heatmap: `{"type":"heatmap","columns":14,"items":[{"label":"周一","value":3}]}`. `max` can fix the intensity scale. The foot line names what the run covers and adds up to (first and last label, e.g. `10/21 – 11/03 · 37次`) on the left, with the color key on the right; each cell keeps its full label in `title`.
 
 ## Tables and boards
 

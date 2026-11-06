@@ -96,7 +96,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `sparkline` | `{type:"sparkline", title?, values:number[], labels?:string[], unit?, tone?}` | inline SVG line+area |
 | `pie` | `{type:"pie", title?, items:[{label, value:number, tone?}], unit?, donut?:boolean}` | donut by default, filled pie with `donut:false`; ≤8 slices, values are shares of their own total |
 | `tree` | `{type:"tree", title?, nodes:[{label, note?, badge?, tone?, children?}]}` | bounded hierarchy (4 levels) |
-| `heatmap` | `{type:"heatmap", title?, columns?, items:[{label?, value:number, tone?}], unit?, max?}` | intensity grid, row-major |
+| `heatmap` | `{type:"heatmap", title?, columns?, items:[{label?, value:number, tone?}], unit?, max?}` | intensity grid, row-major; the foot line names the range (first and last label) and the total, and joins a Latin unit with a space ("7 ms") but a CJK or `%` unit directly ("7次", "7%") |
 | `diff` | `{type:"diff", title?, path?, language?, lines:[{kind:"add"\|"del"\|"ctx", text}]}` | patch view with tints |
 | `kanban` | `{type:"kanban", title?, columns:[{title, tone?, cards:[{title, text?, badges?, tone?}]}]}` | board, horizontal scroll |
 | `tabs` | `{type:"tabs", title?, items:[{label, blocks:[Block,...]}]}` | local tab bar, one pane visible |

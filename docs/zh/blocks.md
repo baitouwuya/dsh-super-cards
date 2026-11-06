@@ -43,7 +43,7 @@
 - `bars` 条形图：`{"type":"bars","items":[{"label":"api","value":42},{"label":"web","value":18}]}`。`direction: "vertical"` 变成柱状图，适合少量类别。
 - `sparkline` 趋势线：`{"type":"sparkline","values":[212,199,187,190],"unit":"ms"}`。`labels` 数量需与 `values` 一致。
 - `pie` 饼图：`{"type":"pie","items":[{"label":"api","value":62},{"label":"web","value":38}]}`。默认环形，`donut: false` 变实心。
-- `heatmap` 热力图：`{"type":"heatmap","columns":14,"items":[{"label":"周一","value":3}]}`。`max` 可固定强度尺度。
+- `heatmap` 热力图：`{"type":"heatmap","columns":14,"items":[{"label":"周一","value":3}]}`。`max` 可固定强度尺度。底部一行左边是覆盖范围与总量（取首末标签，如 `10/21 – 11/03 · 37次`），右边是颜色图例；每个格子的完整标签在 `title` 里。
 
 ## 表格与看板
 

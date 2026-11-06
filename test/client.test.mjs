@@ -3408,6 +3408,46 @@ test('facts are a tile grid when short and a row sheet when long', () => {
   assert.match(css, /\.dsh-sc-kv \{[^}]*max-width: min\(100%, 84ch\);/u)
 })
 
+test('a heatmap names the range it covers on its foot line', () => {
+  const render = (block) => mount(renderBlock(normalizeBlock(block), 'heat', { t: (token) => token }))
+  const rangeOf = (tree) => findAll(tree, (node) => hasClass(node, 'dsh-sc-heatmap-range'))[0]
+
+  const labelled = rangeOf(render({
+    type: 'heatmap',
+    unit: ' 次',
+    items: [
+      { label: '10/21', value: 3 },
+      { label: '10/22', value: 0 },
+      { label: '11/03', value: 4 },
+    ],
+  }))
+  // A CJK unit attaches without a space; a Latin unit takes one.
+  assert.equal(labelled.children.join(''), '10/21 – 11/03 · 7次')
+  assert.equal(
+    rangeOf(render({
+      type: 'heatmap',
+      unit: 'ms',
+      items: [{ label: 'a', value: 3 }, { label: 'b', value: 4 }],
+    })).children.join(''),
+    'a – b · 7 ms',
+  )
+  assert.equal(
+    rangeOf(render({
+      type: 'heatmap',
+      unit: '%',
+      items: [{ label: 'a', value: 3 }, { label: 'b', value: 4 }],
+    })).children.join(''),
+    'a – b · 7%',
+  )
+
+  // One labelled cell has no range to describe, and an unlabelled series falls
+  // back to the legend alone.
+  assert.equal(rangeOf(render({ type: 'heatmap', items: [{ label: '10/21', value: 3 }] })).children.join(''), '10/21 · 3')
+  assert.equal(rangeOf(render({ type: 'heatmap', items: [{ value: 3 }, { value: 1 }] })), undefined)
+
+  assert.match(client.__test.css, /\.dsh-sc-heatmap-foot \{[^}]*justify-content: space-between;/u)
+})
+
 test('a progress caption that only repeats the percentage is dropped', () => {
   const render = (items) => mount(renderBlock(
     normalizeBlock({ type: 'progress', items }),

@@ -21,6 +21,9 @@
   32%, so three-letter service names no longer push the bar half a card to the right.
 - The `timeline` rail runs from one dot into the next item (`bottom: -6px`, 12% ink), so the
   steps read as one line instead of a row of loose bullets.
+- A `heatmap` foot line names what the run covers and totals it (`10/21 – 11/03 · 37次`) on
+  the left of the legend, so fourteen anonymous cells stop being decorative; units join the
+  way they read — `7 ms`, but `7次` and `7%`.
 - A `progress` caption that only repeats the percentage the row already prints (`caption:
   "62%"` beside `value: 0.62`) is dropped; a caption that adds something stays.
 - `code` blocks are syntax-highlighted by the host itself. The Web shell seeds
