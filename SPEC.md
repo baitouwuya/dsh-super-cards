@@ -88,7 +88,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `callout` | `{type:"callout", tone?, title?, text}` | tinted notice box |
 | `stats` | `{type:"stats", items:[{label, value:string\|number, hint?, delta?, tone?}]}` | metric grid; the renderer picks a base column count (1–5) so the last row is never one lonely tile — 6 items read 3+3 — and container queries fold it back on a narrow card (last tile takes the row when the count is odd) |
 | `table` | `{type:"table", columns:string[], rows:(string\|number\|null)[][], align?:("left"\|"center"\|"right")[], caption?}` | first column often a label |
-| `keyvalue` | `{type:"keyvalue", items:[{key, value}], columns?:1\|2}` | spec sheet |
+| `keyvalue` | `{type:"keyvalue", items:[{key, value}], columns?:1\|2}` | spec sheet; the renderer picks the shape from the facts — up to six short facts tile (2, 3, 3+2/3+3, or 2x2), anything longer (a value over 28 characters, a key over 16, or more than six facts) becomes a label/value row sheet, so a sentence never wraps inside a half-width tile and an odd count leaves no hole; `columns:1` forces one tile per line |
 | `list` | `{type:"list", ordered?:boolean, items:string[]}` | bullets / numbered |
 | `badges` | `{type:"badges", items:[{label, tone?}]}` | compact tags |
 | `progress` | `{type:"progress", items:[{label, value:number, caption?, tone?}]}` | `value` is 0..1 |
@@ -129,7 +129,7 @@ and the arrangement. Exact fields are served on demand by `render_ui_blocks` wit
 | `table` | `{columns, rows, align?, caption?}` | `table` |
 | `steps` | `[{title, text?, time?, tone?}]` \| `string[]` | `timeline` |
 | `items` | `string[]` | `list` |
-| `facts` | `{key: value}` \| `[{key, value}]` | `keyvalue` (two columns up to 8 facts) |
+| `facts` | `{key: value}` \| `[{key, value}]` | `keyvalue`; short sheets tile, long ones read as rows |
 | `tags` | `string[]` \| `[{label, tone?}]` | `badges` |
 | `code` | `string` \| `{code, language?, title?}` | `code` |
 | `quote` | `string` \| `{text, by?}` | `quote` |
@@ -491,9 +491,20 @@ window.__ModuleLoader__.load({
   - Typography inherits host: no font-family override except `code`/`sparkline` monospace.
     Sizes: title 17px/700, subtitle 12.5px secondary, body 14px/1.6, table 13px, code 12.5px;
     section headings 18px/700 (level 1, with a brand bar) and 16px/700 (level 2).
-  - Prose-shaped blocks (`text`, `keyvalue`, `list`) keep one reading measure —
-    `--dsh-sc-measure: 62ch` (~31 CJK characters a line) — while blocks that scale with
-    their frame (`table`, charts, `columns`) take the full card width.
+  - Prose-shaped blocks (`text`, `list`, a `keyvalue` row sheet) keep one reading measure —
+    `--dsh-sc-measure: 62ch` (~31 CJK characters a line), and a row sheet gets
+    `--dsh-sc-measure-wide: 76ch` because its first column is labels — while blocks that
+    scale with their frame (`table`, charts, `columns`, a `keyvalue` tile grid at
+    `min(100%, 84ch)`) take the card width.
+  - A `keyvalue` block is one of two shapes (`kvLayout`). Up to six short facts tile —
+    key over value, two or three across, three facts fill the row, four make a 2x2, five and
+    six read 3+2 and 3+3 — which spends a wide card's width without turning the sheet into a
+    form. A long value (over 28 characters), a long key (over 16), or a seventh fact switches
+    to a row sheet:
+    `display:grid` with `fit-content(34%) minmax(0, 1fr)`, the items flattened with
+    `display:contents`, so every label shares one column and every value gets the line
+    width. Under 600px the sheet stacks (key above value) instead of squeezing two
+    columns.
   - A `list` with at least 6 items whose longest item is at most 220 characters may flow
     into columns: `display:grid` with `repeat(auto-fit, minmax(min(100%, 21rem), 1fr))`,
     so a wide card spends the spare width on more columns instead of one ragged line and

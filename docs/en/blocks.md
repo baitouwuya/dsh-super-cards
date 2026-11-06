@@ -36,7 +36,7 @@
 
 - `stats` metric grid: `{"type":"stats","items":[{"label":"Pod","value":"12/12","tone":"success"}]}`. `value` can be a number or short string; `delta`, `hint`, and `tone` are optional.
 
-  The column count comes from the item count so the last row is never a single lonely tile (six items read 3+3); on a narrow card it folds to two columns or one, and an odd count lets the last tile take the whole row.- `keyvalue` spec sheet: `{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`. `columns` takes 1 or 2.
+  The column count comes from the item count so the last row is never a single lonely tile (six items read 3+3); on a narrow card it folds to two columns or one, and an odd count lets the last tile take the whole row.- `keyvalue` spec sheet: `{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`. The block picks its own shape: up to six short facts tile (two columns, three across, 3+2, or a 2x2), while a value over 28 characters, a key over 16, or more than six facts turns it into a label/value row sheet — a sentence is never wrapped inside a half-width tile, and an odd count leaves no hole. `columns` takes 1 (one fact per line) or 2 (force the tile grid).
 - `progress` progress bars: `{"type":"progress","items":[{"label":"迁移","value":0.72}]}`. `value` is between 0 and 1; 1 renders a checkmark.
 - `bars` bar chart: `{"type":"bars","items":[{"label":"api","value":42},{"label":"web","value":18}]}`. `direction: "vertical"` makes a column chart, suitable for a small set of categories.
 - `sparkline` trend line: `{"type":"sparkline","values":[212,199,187,190],"unit":"ms"}`. `labels` count must match `values`.

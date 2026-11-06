@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.5 — 2026-11-06
+
+### Changed
+
+- A `keyvalue` / `facts` block now picks its shape from its own content instead of always
+  splitting into two columns. Up to six short facts stay a tile grid (two side by side,
+  three across, five and six as 3+2 and 3+3); a sentence-long value (over 28 characters), a
+  long key (over 16), or a seventh fact turns the sheet into label/value rows — one column sized to the
+  longest key (`fit-content(34%)`), one column for the value — so text no longer wraps inside
+  a half-width tile and an odd count leaves no empty cell beside the last fact.
+- A tile grid may spend the card's width (`min(100%, 84ch)`) instead of stopping at the
+  62-character reading measure, and a row sheet gets `--dsh-sc-measure-wide: 76ch` because
+  its first column is labels. Under 600px the row sheet stacks (key above value) rather than
+  squeezing two columns.
+- The Host and the Client make the same call (`kvLayout`), so the derived blocks and the
+  height estimate used for section balancing agree, and `columns` is a request again — set it
+  to 1 for one fact per line, leave it out for the automatic shape.
+
 ## 0.12.4 — 2026-11-05
 
 ### Changed

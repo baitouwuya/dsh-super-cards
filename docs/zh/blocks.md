@@ -38,7 +38,7 @@
 
 - `stats` 指标网格：`{"type":"stats","items":[{"label":"Pod","value":"12/12","tone":"success"}]}`。`value` 可以是数字或短字符串，`delta`、`hint`、`tone` 可选。
   列数按条数算，避免最后一行只剩一张卡（6 条读作 3+3）；窄卡片上自动折成两列或一列，奇数条时最后一张占满整行。
-- `keyvalue` 规格清单：`{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`。`columns` 取 1 或 2。
+- `keyvalue` 规格清单：`{"type":"keyvalue","items":[{"key":"区域","value":"eu-west-1"}]}`。形状由内容自己决定：不超过 6 条短事实排成瓦片（2 列、3 列、3+2 或 2×2），只要有一条值超过 28 字、键超过 16 字，或者条数超过 6，就变成「键在左、值在右」的行式清单——句子不会被塞进半宽瓦片里，奇数条也不会留一个空洞。`columns` 取 1（每行一条）或 2（强制瓦片）。
 - `progress` 进度条：`{"type":"progress","items":[{"label":"迁移","value":0.72}]}`。`value` 在 0 到 1 之间，1 渲染成勾。
 - `bars` 条形图：`{"type":"bars","items":[{"label":"api","value":42},{"label":"web","value":18}]}`。`direction: "vertical"` 变成柱状图，适合少量类别。
 - `sparkline` 趋势线：`{"type":"sparkline","values":[212,199,187,190],"unit":"ms"}`。`labels` 数量需与 `values` 一致。

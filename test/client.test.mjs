@@ -3336,6 +3336,70 @@ test('stats pick a column count that never leaves one tile alone', () => {
   assert.match(css, /\.dsh-sc-stat-value \{[^}]*word-break: keep-all;/u)
 })
 
+test('facts are a tile grid when short and a row sheet when long', () => {
+  const { kvLayout, KV_TILE_MAX_ITEMS, KV_TILE_MAX_KEY, KV_TILE_MAX_VALUE } = client.__test
+  const fact = (key, value) => ({ key, value })
+
+  // Short facts tile: two side by side, three in one row, four as a 2x2, one
+  // on the line.
+  assert.deepEqual(kvLayout([fact('a', '1'), fact('b', '2')]), { layout: 'tiles', cols: 2 })
+  assert.deepEqual(kvLayout([fact('a', '1'), fact('b', '2'), fact('c', '3')]), { layout: 'tiles', cols: 3 })
+  assert.deepEqual(kvLayout([fact('a', '1'), fact('b', '2'), fact('c', '3'), fact('d', '4')]), { layout: 'tiles', cols: 2 })
+  assert.deepEqual(kvLayout([fact('a', '1')]), { layout: 'tiles', cols: 1 })
+
+  // Five or six short facts read 3+2 and 3+3.
+  assert.deepEqual(kvLayout(Array.from({ length: 5 }, (_, index) => fact('k' + index, 'v'))), { layout: 'tiles', cols: 3 })
+  assert.deepEqual(kvLayout(Array.from({ length: 6 }, (_, index) => fact('k' + index, 'v'))), { layout: 'tiles', cols: 3 })
+
+  // A value that reads as a sentence, a key that cannot hold a label column,
+  // or a seventh fact all mean the sheet becomes rows.
+  assert.equal(KV_TILE_MAX_ITEMS, 6)
+  const sentence = 'x'.repeat(KV_TILE_MAX_VALUE + 1)
+  assert.equal(kvLayout([fact('a', sentence)]).layout, 'rows')
+  assert.equal(kvLayout([fact('k'.repeat(KV_TILE_MAX_KEY + 1), 'v')]).layout, 'rows')
+  assert.equal(kvLayout(Array.from({ length: 7 }, (_, index) => fact('k' + index, 'v'))).layout, 'rows')
+
+  // A short value at the limit still tiles.
+  assert.equal(kvLayout([fact('a', 'x'.repeat(KV_TILE_MAX_VALUE))]).layout, 'tiles')
+
+  // An explicit single-column request wins over the shape.
+  assert.deepEqual(kvLayout([fact('a', '1'), fact('b', '2')], 1), { layout: 'tiles', cols: 1 })
+
+  // Defensive input still yields a usable grid.
+  assert.deepEqual(kvLayout(undefined), { layout: 'tiles', cols: 1 })
+
+  const tiles = mount(renderBlock(
+    normalizeBlock({ type: 'keyvalue', items: [fact('版本', '0.12.5'), fact('大小', '48 KB')] }),
+    'kv',
+    { t: (token) => token },
+  ))
+  assert.equal(tiles.props['data-layout'], 'tiles')
+  assert.equal(tiles.props['data-cols'], '2')
+  assert.equal(findAll(tiles, (node) => hasClass(node, 'dsh-sc-kv-item')).length, 2)
+
+  const rows = mount(renderBlock(
+    normalizeBlock({
+      type: 'keyvalue',
+      items: [1, 2, 3, 4, 5, 6, 7].map((index) => fact('key ' + index, 'value ' + index)),
+    }),
+    'kv',
+    { t: (token) => token },
+  ))
+  assert.equal(rows.props['data-layout'], 'rows', 'seven facts read as a row sheet')
+  assert.equal(rows.props['data-cols'], '2')
+
+  // The row sheet is one label column and one value column: the items flatten
+  // into the grid so labels align across rows.
+  const css = client.__test.css
+  assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{[^}]*max-width: var\(--dsh-sc-measure-wide, 76ch\);/u)
+  assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{[^}]*grid-template-columns: fit-content\(34%\) minmax\(0, 1fr\);/u)
+  assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] > \.dsh-sc-kv-item \{ display: contents; \}/u)
+  // A narrow card stacks the sheet instead of squeezing two columns.
+  assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{ grid-template-columns: minmax\(0, 1fr\); gap: 1px; \}/u)
+  // Tile grids may spend the card's width; prose blocks keep their measure.
+  assert.match(css, /\.dsh-sc-kv \{[^}]*max-width: min\(100%, 84ch\);/u)
+})
+
 test('a long list flows into columns on a wide card, a short or prose list does not', () => {
   const render = (items, ordered) => mount(renderBlock(
     normalizeBlock({ type: 'list', ordered, items }),

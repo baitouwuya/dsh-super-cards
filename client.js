@@ -483,6 +483,10 @@ window.__ModuleLoader__.load({
      line. Blocks that can spend spare width (tables, charts, columns) ignore
      it; blocks that cannot (text, keyvalue, list) keep lines comfortable. */
   --dsh-sc-measure: 62ch;
+  /* A label/value row sheet spends its first column on labels, so the value
+     column keeps the reading measure on its own: the block as a whole may be
+     wider without stretching a sentence. */
+  --dsh-sc-measure-wide: 76ch;
 }
 .dsh-sc-head {
   display: flex;
@@ -729,16 +733,39 @@ window.__ModuleLoader__.load({
 .dsh-sc-caption { margin-top: 7px; font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .dsh-sc-kv {
   display: grid;
-  max-width: var(--dsh-sc-measure, 62ch);
-  /* Adaptive by available width: three facts per row in a full card, one in a
-     narrow column, so a spec sheet never squeezes its keys. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  /* A tile grid is a spec sheet, not prose: it may spend the card's width, up
+     to the point where four facts would drift apart. */
+  max-width: min(100%, 84ch);
   gap: 8px 16px;
 }
 .dsh-sc-kv[data-cols="1"] { grid-template-columns: minmax(0, 1fr); }
+.dsh-sc-kv[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dsh-sc-kv[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Long-form facts read as a row sheet: one label column sized to the longest
+   key (capped so a long key cannot eat the value), one value column holding
+   the whole line. No odd-count hole, no sentence wrapping inside a half tile. */
+.dsh-sc-kv[data-layout="rows"] {
+  max-width: var(--dsh-sc-measure-wide, 76ch);
+  grid-template-columns: fit-content(34%) minmax(0, 1fr);
+  gap: 7px 14px;
+  align-items: baseline;
+}
+.dsh-sc-kv[data-layout="rows"] > .dsh-sc-kv-item { display: contents; }
+.dsh-sc-kv[data-layout="rows"] .dsh-sc-kv-key { font-size: 12px; line-height: 1.5; }
+.dsh-sc-kv[data-layout="rows"] .dsh-sc-kv-value { margin-top: 0; font-weight: 500; }
 .dsh-sc-kv-item { min-width: 0; }
 .dsh-sc-kv-key { font-size: 11px; line-height: 1.35; color: var(--dsw-alias-label-secondary); }
 .dsh-sc-kv-value { margin-top: 1px; font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+@container (max-width: 600px) {
+  .dsh-sc-kv[data-cols="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* A narrow card stacks the sheet instead: key above value, one pair per
+     paragraph, which is the only shape that keeps both readable. */
+  .dsh-sc-kv[data-layout="rows"] { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  .dsh-sc-kv[data-layout="rows"] .dsh-sc-kv-value { margin-bottom: 7px; }
+}
+@container (max-width: 430px) {
+  .dsh-sc-kv[data-cols] { grid-template-columns: minmax(0, 1fr); }
+}
 .dsh-sc-list {
   margin: 0;
   padding-left: 18px;
@@ -1537,7 +1564,9 @@ ${COLUMN_RATIO_CSS}
 }
 @media (max-width: 520px) {
   .dsh-sc-card { padding: 15px; border-radius: 14px; }
-  .dsh-sc-kv { grid-template-columns: 1fr; }
+  .dsh-sc-kv[data-cols],
+  .dsh-sc-kv[data-layout="rows"] { grid-template-columns: 1fr; }
+  .dsh-sc-kv[data-layout="rows"] .dsh-sc-kv-value { margin-bottom: 7px; }
   .dsh-sc-links { grid-template-columns: 1fr; }
   .dsh-sc-pie { grid-template-columns: 104px minmax(0, 1fr); gap: 12px; }
   .dsh-sc-pie-figure { width: 104px; height: 104px; }
@@ -2981,7 +3010,11 @@ ${COLUMN_RATIO_CSS}
         MAX_ITEMS,
       )
       if (items.length === 0) return null
-      return { type: 'keyvalue', items, columns: raw.columns === 1 ? 1 : 2 }
+      // `columns` is a request, not a default: without it the renderer picks
+      // tiles or rows from the sheet's own shape (`kvLayout`).
+      const block = { type: 'keyvalue', items }
+      if (raw.columns === 1 || raw.columns === 2) block.columns = raw.columns
+      return block
     }
 
     /**
@@ -5388,7 +5421,14 @@ ${COLUMN_RATIO_CSS}
       const type = typeof block.type === 'string' ? block.type : ''
       switch (type) {
         case 'table': return 34 + (Array.isArray(block.rows) ? block.rows.length : 0) * 26
-        case 'keyvalue': return Math.ceil((Array.isArray(block.items) ? block.items.length : 0) / 2) * 38
+        case 'keyvalue': {
+          const items = Array.isArray(block.items) ? block.items.length : 0
+          const layout = kvLayout(block.items, block.columns)
+          // A row sheet is one line per fact; a tile grid is a tile per fact
+          // over the columns it actually gets.
+          if (layout.layout === 'rows') return items * 27
+          return Math.ceil(items / Math.max(1, layout.cols)) * 38
+        }
         case 'list': return (Array.isArray(block.items) ? block.items.length : 0) * 24 + 4
         case 'progress': return (Array.isArray(block.items) ? block.items.length : 0) * 30
         case 'bars': return (Array.isArray(block.items) ? block.items.length : 0) * 26
@@ -5611,7 +5651,7 @@ ${COLUMN_RATIO_CSS}
       return items.length === 0 ? [] : [{ type: 'list', items }]
     }
 
-    /** Build the spec sheet, two facts per row up to eight. */
+    /** Build the spec sheet; `kvLayout` picks tiles or rows from its shape. */
     function contentFacts(value) {
       const items = []
       for (const raw of citems(value, 'key')) {
@@ -5620,7 +5660,7 @@ ${COLUMN_RATIO_CSS}
         items.push({ key, value: ctext(raw.value) })
       }
       if (items.length === 0) return []
-      return [{ type: 'keyvalue', items, columns: items.length <= 8 ? 2 : 1 }]
+      return [{ type: 'keyvalue', items }]
     }
 
     /** Build badges from strings or `{label, tone?}` items. */
@@ -6138,6 +6178,48 @@ ${COLUMN_RATIO_CSS}
       )
     }
 
+    /** Facts a tile grid still holds; past this the sheet becomes rows. */
+    const KV_TILE_MAX_ITEMS = 6
+    /** Longest key a tile still holds on one line without squeezing its value. */
+    const KV_TILE_MAX_KEY = 16
+    /** Longest value a tile still holds before it reads as a sentence. */
+    const KV_TILE_MAX_VALUE = 28
+
+    /**
+     * Choose how a `keyvalue` block lays its facts out.
+     *
+     * A fact sheet is two different shapes. Up to four short facts are a tile
+     * grid — key above value, three across or two by two — which fills a wide
+     * card without turning it into a form. Anything longer (a value that reads
+     * as a sentence, a long key, more than four facts) is a row sheet: one
+     * label column sized to the longest key, one value column holding the whole
+     * line. That keeps a sentence out of a half-width tile and leaves an odd
+     * count without a hole beside it.
+     *
+     * @param {Array<{ key: string, value: any }>} items - normalized items.
+     * @param {1|2} [columns] - the block's explicit `columns` request.
+     * @returns {{ layout: 'tiles' | 'rows', cols: number }}
+     */
+    function kvLayout(items, columns) {
+      const list = Array.isArray(items) ? items : []
+      if (columns === 1) return { layout: 'tiles', cols: 1 }
+      if (list.length > KV_TILE_MAX_ITEMS) return { layout: 'rows', cols: 2 }
+      let longestKey = 0
+      let longestValue = 0
+      for (const item of list) {
+        if (!item || typeof item !== 'object') continue
+        const keyLength = typeof item.key === 'string' ? item.key.length : 0
+        const valueLength = item.value === undefined || item.value === null ? 0 : String(item.value).length
+        if (keyLength > longestKey) longestKey = keyLength
+        if (valueLength > longestValue) longestValue = valueLength
+      }
+      if (longestKey > KV_TILE_MAX_KEY || longestValue > KV_TILE_MAX_VALUE) return { layout: 'rows', cols: 2 }
+      // Balanced tiles: two facts sit side by side, three fill one row, four
+      // make a 2x2, five or six read 3+2 and 3+3, one fact takes the line.
+      const cols = list.length === 4 ? 2 : list.length >= 5 ? 3 : Math.max(1, list.length)
+      return { layout: 'tiles', cols }
+    }
+
     /**
      * Render one `keyvalue` block. Extracted into the BLOCK_IMPL registry.
      * @param {any} block - normalized block.
@@ -6146,12 +6228,14 @@ ${COLUMN_RATIO_CSS}
      * @returns {any}
      */
     function renderKeyvalueBlock(block, key, context) {
+      const layout = kvLayout(block.items, block.columns)
       return h(
         'div',
         {
           key,
           className: PREFIX + 'kv',
-          'data-cols': block.columns === 1 ? '1' : '2',
+          'data-layout': layout.layout,
+          'data-cols': String(layout.cols),
         },
         block.items.map((item, index) =>
           h(
@@ -10949,6 +11033,10 @@ ${COLUMN_RATIO_CSS}
       renderBlock,
       listFlows,
       statColumns,
+      kvLayout,
+      KV_TILE_MAX_ITEMS,
+      KV_TILE_MAX_KEY,
+      KV_TILE_MAX_VALUE,
       renderUiCallArgs,
       renderUiCallId,
       sparkBlock: SparklineBlock,
