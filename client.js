@@ -1844,21 +1844,39 @@ ${COLUMN_RATIO_CSS}
 .dsh-sc-controls-title { font-size: 12.5px; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .dsh-sc-control { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dsh-sc-control-label { font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
-.dsh-sc-segments { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); gap: 2px; }
+/* A settings row is not a tab set, so it keeps a plain group of pressed
+   toggles rather than the host SegmentedControl's tab/tabpanel pair. It borrows
+   that control's geometry instead — the tinted tray, the raised indicator, the
+   same metrics — so a card and the settings page read as one product. */
+.dsh-sc-segments {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent));
+}
 .dsh-sc-segment {
-  padding: 3px 9px;
+  height: 28px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
+  transition: color 120ms ease;
 }
+.dsh-sc-segment:hover { color: var(--dsw-alias-label-primary); }
 .dsh-sc-segment--on {
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font-weight: 600;
-  box-shadow: 0 0 0 1px var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-soft, 0 0 0 .5px var(--dsw-alias-border-l2));
 }
 .dsh-sc-control-button {
   align-self: flex-start;

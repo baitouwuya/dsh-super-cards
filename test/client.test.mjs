@@ -569,6 +569,7 @@ test('every color token used is one of the allowed theme tokens', () => {
     'border-l1',
     'border-l2',
     'border-l3',
+    'interactive-bg-hover',
     'brand-primary',
     'label-primary',
     'label-secondary',
@@ -3477,6 +3478,28 @@ test('a kanban stacks its lanes once the card is narrow', () => {
     css.indexOf('.dsh-sc-kanban-col { flex: 0 0 auto; }') > css.indexOf('flex: 1 0 190px;'),
     'the narrow rule must follow the lane basis',
   )
+})
+
+test('a settings row keeps toggle semantics but the host control geometry', () => {
+  const block = normalizeBlock({
+    type: 'controls',
+    items: [{ kind: 'setting', setting: 'theme', label: '主题', options: [{ value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }, { value: 'system', label: '跟随系统' }] }],
+  })
+  const tree = mount(renderBlock(block, 'ctl', { t: (token) => token }))
+  // A settings row is a group of pressed toggles, never a tablist: the host
+  // SegmentedControl is a tab/tabpanel pair and a setting has no panel.
+  assert.equal(findOne(tree, (node) => node.props && node.props.role === 'group').props.role, 'group')
+  assert.equal(findAll(tree, (node) => node.props && node.props.role === 'tab').length, 0)
+  const segments = findAll(tree, (node) => hasClass(node, 'dsh-sc-segment'))
+  assert.equal(segments.length, 3)
+  assert.equal(segments[0].props['aria-pressed'], 'false')
+
+  // The stylesheet borrows the host metrics and its raised indicator token.
+  const css = client.__test.css
+  assert.match(css, /\.dsh-sc-segments \{\n  display: inline-grid;/u)
+  assert.match(css, /background: var\(--dsw-alias-interactive-bg-hover, /u)
+  assert.match(css, /\.dsh-sc-segment--on \{[^}]*var\(--dsw-elevation-soft/u)
+  assert.match(css, /\.dsh-sc-segment \{\n  height: 28px;/u)
 })
 
 test('a heatmap names the range it covers on its foot line', () => {
