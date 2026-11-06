@@ -17,6 +17,13 @@
 - The Host and the Client make the same call (`kvLayout`), so the derived blocks and the
   height estimate used for section balancing agree, and `columns` is a request again — set it
   to 1 for one fact per line, leave it out for the automatic shape.
+- `code` blocks are syntax-highlighted by the host itself. The Web shell seeds
+  `@deepseek-ai/dsh-client-ui-primitives` into its module table, so the Client half now
+  probes it (inside a `try`/`catch`, no `dsh.client.external`, no bundled highlighter) and
+  renders the host's own shiki tokens inline under the same `--shiki-*` variables the
+  transcript uses; languages load lazily and the plain text shows until they arrive. The
+  plugin keeps its own frame, title, language label and wrap toggle. A shell that predates
+  the primitives package renders exactly as before.
 
 ## 0.12.4 — 2026-11-05
 

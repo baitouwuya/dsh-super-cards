@@ -262,7 +262,8 @@ On the Host, the row config is the extension point (`blocks`, `maxBlocks`, `dock
 | Session log | cards are a pure function of recorded call arguments |
 | Config | `export const Config` is a dependency-free Standard Schema (validated at activation) plus a defensive `apply(ctx, config)` resolver |
 | Theme / locale | only `--dsw-alias-*` tokens; text through `ctx.locale` |
-| No client imports | `require('react')` only; host imports only its own `./lib` modules |
+| No client imports | `require('react')` plus one optional probe of the seeded `@deepseek-ai/dsh-client-ui-primitives`; host imports only its own `./lib` modules |
+| Host UI reuse | the Web shell's frozen module table seeds `dsh-client-ui-primitives` (310 exports: icons, `CodeBlock`, `DiffBlock`, `MarkdownText`, `Button`, menus, form controls, `useClipboardCopy`, `useCodeHighlighter`…). The loader resolves it before any package, so a plugin factory reads the same instance the app renders with — no copy, no `dsh.client.external`, no version drift. It is not a documented contract and older shells do not seed it, so the probe is forgiving and every consumer falls back to the plugin's own renderer: today the `code` block takes the host's syntax tokens when they exist, and plain text otherwise |
 
 ## 7. Motion
 

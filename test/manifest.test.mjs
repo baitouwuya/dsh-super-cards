@@ -102,5 +102,12 @@ test('client half registers the matching toolview key', () => {
     /key:\s*'render_ui'/.test(source) || /KEY\s*=\s*'render_ui'/.test(source),
     "client must key its toolview by the exact wire name 'render_ui'",
   )
-  assert.ok(!/require\(\s*'@deepseek-ai\//.test(source), 'client must not import Harness packages')
+  // The client is not allowed to pull in Harness packages — the single
+  // exception is the opt-in platform seed `@deepseek-ai/dsh-client-ui-primitives`,
+  // which lives in the shell's module table (not in `dsh.client.external`) and is
+  // guarded by a try/catch so a shell that predates it still renders cards.
+  assert.ok(
+    !/require\(\s*'@deepseek-ai\/(?!dsh-client-ui-primitives)/.test(source),
+    'client may only require the opt-in platform seed, not other Harness packages',
+  )
 })

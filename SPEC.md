@@ -101,7 +101,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `kanban` | `{type:"kanban", title?, columns:[{title, tone?, cards:[{title, text?, badges?, tone?}]}]}` | board, horizontal scroll |
 | `tabs` | `{type:"tabs", title?, items:[{label, blocks:[Block,...]}]}` | local tab bar, one pane visible |
 | `columns` | `{type:"columns", title?, items:[{label?, blocks:[Block,...]}], weights?:number[]}` | 2–3 block groups side by side; `weights` gives each column 1–3 fr shares (one integer per column, default equal, a mismatched list is ignored). The grid auto-fits and a container query folds a weighted grid back to one column under 560px. A column may not nest a tab or another column |
-| `code` | `{type:"code", code, language?, title?}` | monospace block, own scroll |
+| `code` | `{type:"code", code, language?, title?}` | monospace block, own scroll; highlighted with the host's own shiki tokens when the shell seeds `dsh-client-ui-primitives`, plain text otherwise |
 | `quote` | `{type:"quote", text, by?}` | pull quote |
 | `timeline` | `{type:"timeline", items:[{title, text?, time?, tone?}]}` | steps / history |
 | `links` | `{type:"links", items:[{label, href, description?}]}` | href must be http(s)/mailto |
@@ -459,6 +459,15 @@ window.__ModuleLoader__.load({
   },
 })
 ```
+
+The only module this file requires beyond `react` is an optional probe of
+`@deepseek-ai/dsh-client-ui-primitives`, the Web shell's own component library. The shell
+seeds it into its frozen module table, so the loader resolves it before it looks at any
+package: a plugin factory reads the same instance the application renders with, without a
+copy and without a `dsh.client.external` declaration. It is not a documented contract and
+older shells do not seed it, so the probe is wrapped in `try`/`catch` and every consumer
+falls back to the plugin's own renderer — today the `code` block takes the host's
+`useCodeHighlighter` tokens, and plain text when they are not there.
 
 - `const inject = ['slots', 'locale']`
 - `apply(ctx)`: t = makeTranslator(ctx) (locale service via `ctx.get('locale')`, local zh/en

@@ -534,8 +534,16 @@ test('the module stays inert: no HTML injection, timers, storage, or network', (
   assert.equal(SOURCE.includes('localStorage'), false)
   assert.equal(SOURCE.includes('sessionStorage'), false)
   assert.equal(/\bfetch\s*\(/u.test(SOURCE), false)
-  // The only module this file may require is react.
-  assert.deepEqual(SOURCE.match(/require\(/gu), ['require('])
+  // The module is self-contained except for one optional probe: the host
+  // seeds `@deepseek-ai/dsh-client-ui-primitives` into its module table, so the
+  // plugin can read its syntax highlighter without shipping a copy or declaring
+  // an external dependency.
+  const requires = SOURCE.match(/require\(/gu) || []
+  assert.ok(requires.length <= 2, 'at most two module requires (react + the platform-seed probe)')
+  if (requires.length > 1) assert.ok(
+    SOURCE.includes("require('@deepseek-ai/dsh-client-ui-primitives')"),
+    'the extra require must be the host primitives module',
+  )
   // Only DSH theme tokens may carry color: no hard-coded colors in the file.
   assert.equal(/#[0-9a-f]{3,8}\b/iu.test(SOURCE), false)
   assert.equal(/\brgba?\s*\(/u.test(SOURCE), false)
@@ -3398,6 +3406,60 @@ test('facts are a tile grid when short and a row sheet when long', () => {
   assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{ grid-template-columns: minmax\(0, 1fr\); gap: 1px; \}/u)
   // Tile grids may spend the card's width; prose blocks keep their measure.
   assert.match(css, /\.dsh-sc-kv \{[^}]*max-width: min\(100%, 84ch\);/u)
+})
+
+test('code takes the host highlighter when the shell seeds it, and stays plain otherwise', () => {
+  /** Resolve every function component, not just the outermost one. */
+  const deep = (node) => {
+    if (Array.isArray(node)) return node.map(deep)
+    if (!node || typeof node !== 'object') return node
+    let current = node
+    let guard = 0
+    while (current && typeof current === 'object' && typeof current.type === 'function') {
+      guard += 1
+      assert.ok(guard < 20, 'component tree resolves')
+      current = current.type(current.props)
+    }
+    if (!current || typeof current !== 'object') return current
+    return { ...current, children: current.children.map(deep) }
+  }
+  const render = (instance, block) => deep(instance.__test.renderBlock(
+    instance.__test.normalizeBlock(block),
+    'code',
+    { t: (token) => token },
+  ))
+  const codeOf = (tree) => findAll(tree, (node) => hasClass(node, 'dsh-sc-code-text'))[0]
+
+  // The test shell throws for any module but React, exactly like a shell whose
+  // seed table predates the primitives package: the text renders as written.
+  const plain = codeOf(render(client, { type: 'code', code: 'const a = 1', language: 'ts' }))
+  assert.deepEqual(plain.children, ['const a = 1'])
+
+  // A shell that seeds the host highlighter renders its tokens, one span each,
+  // still inside one <code>, so the block's own chrome is untouched.
+  const primed = captured.factory((id) => {
+    if (id === 'react') return reactStub
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') {
+      return {
+        useCodeHighlighter: (lang) => (code) => (lang === 'ts'
+          ? [[{ text: 'const', style: { color: 'var(--shiki-token-keyword)' } }, { text: ' a = 1', style: { color: 'var(--shiki-token-plain)' } }]]
+          : undefined),
+      }
+    }
+    throw new Error('unexpected require: ' + id)
+  })
+  const lit = codeOf(render(primed, { type: 'code', code: 'const a = 1', language: 'ts' }))
+  assert.equal(lit.props.className, 'dsh-sc-code-text dsh-sc-code-text--tokens')
+  const tokens = findAll(lit, (node) => node.type === 'span')
+  assert.deepEqual(tokens.map((node) => node.children.join('')), ['const', ' a = 1'])
+  assert.deepEqual(tokens[0].props.style, { color: 'var(--shiki-token-keyword)' })
+
+  // A language the host cannot tokenize falls back to the plain body, and a
+  // later render of a known language highlights again.
+  const unknown = codeOf(render(primed, { type: 'code', code: 'dsh deploy', language: 'bash' }))
+  assert.deepEqual(unknown.children, ['dsh deploy'])
+  const noLanguage = codeOf(render(primed, { type: 'code', code: 'hello' }))
+  assert.deepEqual(noLanguage.children, ['hello'])
 })
 
 test('a long list flows into columns on a wide card, a short or prose list does not', () => {

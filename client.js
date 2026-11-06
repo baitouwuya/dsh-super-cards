@@ -32,6 +32,43 @@ window.__ModuleLoader__.load({
     /** React base class, tolerant of a minimal stub in non-browser tests. */
     const ReactComponent = (React && React.Component) || class {}
 
+    /**
+     * The host's own component library, when this deployment seeds it.
+     *
+     * `@deepseek-ai/dsh-client-ui-primitives` is a platform module of the Web
+     * shell: the loader resolves it from the frozen seed table before it looks
+     * at any package, so a plugin factory can `require` it without declaring it
+     * in `dsh.client.external` and without shipping a copy. It is the same
+     * instance the app itself renders with, so its syntax highlighter knows the
+     * languages the host already highlights, and its CSS is already on the page.
+     *
+     * It is not part of the documented plugin contract, though, and older shells
+     * do not seed it, so the probe is forgiving: a missing module, a module
+     * without the symbol, or a `require` that throws all leave `null`, and every
+     * consumer below falls back to the plugin's own renderer.
+     */
+    const PRIMITIVES = probePrimitives()
+    /**
+     * The host's code highlighter, or `null` when this shell has none.
+     * @type {((lang: string) => ((code: string) => Array<Array<{ text: string, style: any }>> | undefined)) | null}
+     */
+    const useHostHighlighter = PRIMITIVES && typeof PRIMITIVES.useCodeHighlighter === 'function'
+      ? PRIMITIVES.useCodeHighlighter
+      : null
+
+    /**
+     * Read the host primitives module without letting its absence matter.
+     * @returns {Record<string, any> | null} the module namespace, or null.
+     */
+    function probePrimitives() {
+      try {
+        const loaded = require('@deepseek-ai/dsh-client-ui-primitives')
+        return loaded && typeof loaded === 'object' ? loaded : null
+      } catch {
+        return null
+      }
+    }
+
     /** Locale namespace for the few plugin-owned strings. */
     const NS = 'superCards'
     /** Slot this plugin occupies: the keyed Tool row dispatch. */
@@ -7255,10 +7292,55 @@ ${COLUMN_RATIO_CSS}
             tabIndex: 0,
             'aria-label': block.title || block.language || t('code.label'),
           },
-          h('code', { className: PREFIX + 'code-text' }, block.code),
+          h(CodeText, { code: block.code, lang: block.language }),
         ),
       )
     }
+
+    /**
+     * Code body for a shell that seeds the host highlighter.
+     *
+     * The tokens come from the same shiki instance the transcript highlights
+     * with, under the theme's `--shiki-*` variables, so a card's code matches
+     * the code in the answer above it. The shape is the plugin's own: one
+     * `<code>` of inline colored spans, no header, no copy button, no extra
+     * chrome — the block around it already owns those.
+     *
+     * A language the host has not loaded yet returns no tokens; the plain text
+     * renders instead, and the highlighter store re-renders when the language
+     * chunk arrives.
+     *
+     * @param {{ code: string, lang?: string }} props block code and language.
+     * @returns {any} React element.
+     */
+    function HighlightedCodeText(props) {
+      const highlight = useHostHighlighter(props.lang)
+      const lines = highlight ? highlight(props.code) : undefined
+      if (!Array.isArray(lines) || lines.length === 0) return h(PlainCodeText, props)
+      const children = []
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        if (lineIndex > 0) children.push('\n')
+        const line = Array.isArray(lines[lineIndex]) ? lines[lineIndex] : []
+        for (let tokenIndex = 0; tokenIndex < line.length; tokenIndex += 1) {
+          const token = line[tokenIndex]
+          if (!token || typeof token.text !== 'string') continue
+          children.push(h('span', { key: lineIndex + ':' + tokenIndex, style: token.style }, token.text))
+        }
+      }
+      return h('code', { className: PREFIX + 'code-text ' + PREFIX + 'code-text--tokens' }, children)
+    }
+
+    /**
+     * Code body for every other shell: the text exactly as written.
+     * @param {{ code: string }} props block code.
+     * @returns {any} React element.
+     */
+    function PlainCodeText(props) {
+      return h('code', { className: PREFIX + 'code-text' }, props.code)
+    }
+
+    /** The code body this shell can render: the host's tokens, or plain text. */
+    const CodeText = useHostHighlighter === null ? PlainCodeText : HighlightedCodeText
 
     /**
      * Card header: leading glyph + title + one-line subtitle, with the card
