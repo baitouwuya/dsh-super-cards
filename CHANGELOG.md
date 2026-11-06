@@ -17,6 +17,12 @@
 - The Host and the Client make the same call (`kvLayout`), so the derived blocks and the
   height estimate used for section balancing agree, and `columns` is a request again — set it
   to 1 for one fact per line, leave it out for the automatic shape.
+- A `bars` label column hugs its longest label (`fit-content(30%)`) instead of taking a fixed
+  32%, so three-letter service names no longer push the bar half a card to the right.
+- The `timeline` rail runs from one dot into the next item (`bottom: -6px`, 12% ink), so the
+  steps read as one line instead of a row of loose bullets.
+- A `progress` caption that only repeats the percentage the row already prints (`caption:
+  "62%"` beside `value: 0.62`) is dropped; a caption that adds something stays.
 - `code` blocks are syntax-highlighted by the host itself. The Web shell seeds
   `@deepseek-ai/dsh-client-ui-primitives` into its module table, so the Client half now
   probes it (inside a `try`/`catch`, no `dsh.client.external`, no bundled highlighter) and

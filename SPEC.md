@@ -91,7 +91,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `keyvalue` | `{type:"keyvalue", items:[{key, value}], columns?:1\|2}` | spec sheet; the renderer picks the shape from the facts — up to six short facts tile (2, 3, 3+2/3+3, or 2x2), anything longer (a value over 28 characters, a key over 16, or more than six facts) becomes a label/value row sheet, so a sentence never wraps inside a half-width tile and an odd count leaves no hole; `columns:1` forces one tile per line |
 | `list` | `{type:"list", ordered?:boolean, items:string[]}` | bullets / numbered |
 | `badges` | `{type:"badges", items:[{label, tone?}]}` | compact tags |
-| `progress` | `{type:"progress", items:[{label, value:number, caption?, tone?}]}` | `value` is 0..1 |
+| `progress` | `{type:"progress", items:[{label, value:number, caption?, tone?}]}` | `value` is 0..1; a `caption` that only repeats the printed percentage is dropped |
 | `bars` | `{type:"bars", title?, items:[{label, value:number, tone?}], direction?, max?, unit?}` | horizontal bar chart; `direction:"vertical"` draws columns |
 | `sparkline` | `{type:"sparkline", title?, values:number[], labels?:string[], unit?, tone?}` | inline SVG line+area |
 | `pie` | `{type:"pie", title?, items:[{label, value:number, tone?}], unit?, donut?:boolean}` | donut by default, filled pie with `donut:false`; ≤8 slices, values are shares of their own total |

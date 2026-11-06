@@ -876,7 +876,10 @@ window.__ModuleLoader__.load({
 .dsh-sc-bars { display: flex; flex-direction: column; gap: 6px; }
 .dsh-sc-bar-row {
   display: grid;
-  grid-template-columns: minmax(56px, 32%) minmax(0, 1fr) auto;
+  /* The label column hugs its longest label instead of taking a fixed share:
+     three-letter service names should not push the bar half a card to the
+     right, and a long label still stops at 30% so the bar keeps the rest. */
+  grid-template-columns: fit-content(30%) minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   color: var(--dsh-sc-tone, var(--dsw-alias-state-idle-primary));
@@ -1168,11 +1171,13 @@ window.__ModuleLoader__.load({
 .dsh-sc-tl-item::after {
   content: "";
   position: absolute;
+  /* The rail runs from under one dot into the next item so the steps read as
+     one line; the following dot paints over the last few pixels. */
   left: 5px;
   top: 15px;
-  bottom: 1px;
+  bottom: -6px;
   width: 1px;
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent);
 }
 .dsh-sc-tl-item:last-child::after { display: none; }
 .dsh-sc-tl-head {
@@ -6396,7 +6401,9 @@ ${COLUMN_RATIO_CSS}
               },
               h('span', { className: PREFIX + 'progress-fill', style: { width: percent + '%' } }),
             ),
-            item.caption
+            // A caption that only repeats the percentage the row already
+            // prints is noise, not information.
+            item.caption !== undefined && item.caption.trim() !== percent + '%'
               ? h('div', { className: PREFIX + 'progress-caption' }, richChildren(item.caption, key + 'c' + index))
               : null,
           )

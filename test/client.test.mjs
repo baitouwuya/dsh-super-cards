@@ -3408,6 +3408,29 @@ test('facts are a tile grid when short and a row sheet when long', () => {
   assert.match(css, /\.dsh-sc-kv \{[^}]*max-width: min\(100%, 84ch\);/u)
 })
 
+test('a progress caption that only repeats the percentage is dropped', () => {
+  const render = (items) => mount(renderBlock(
+    normalizeBlock({ type: 'progress', items }),
+    'progress',
+    { t: (token) => token },
+  ))
+  const captions = (tree) => findAll(tree, (node) => hasClass(node, 'dsh-sc-progress-caption'))
+
+  // `caption: '62%'` beside a value of 0.62 says the same thing twice.
+  assert.equal(captions(render([{ label: '发布进度', value: 0.62, caption: '62%' }])).length, 0)
+  assert.equal(captions(render([{ label: '发布进度', value: 0.62, caption: ' 62% ' }])).length, 0)
+
+  // A caption that adds information stays.
+  const kept = captions(render([{ label: '发布进度', value: 0.62, caption: '较上周 +6%' }]))
+  assert.equal(kept.length, 1)
+  assert.equal(kept[0].children.join(''), '较上周 +6%')
+
+  // The bar label column hugs its labels instead of taking a fixed share.
+  assert.match(client.__test.css, /\.dsh-sc-bar-row \{[^}]*grid-template-columns: fit-content\(30%\) minmax\(0, 1fr\) auto;/u)
+  // The timeline rail runs into the next item so the steps read as one line.
+  assert.match(client.__test.css, /\.dsh-sc-tl-item::after \{[^}]*bottom: -6px;/u)
+})
+
 test('code takes the host highlighter when the shell seeds it, and stays plain otherwise', () => {
   /** Resolve every function component, not just the outermost one. */
   const deep = (node) => {
