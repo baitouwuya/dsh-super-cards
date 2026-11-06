@@ -99,7 +99,7 @@ Newlines in `text` are line breaks. No HTML, no Markdown headings/tables inside 
 | `heatmap` | `{type:"heatmap", title?, columns?, items:[{label?, value:number, tone?}], unit?, max?}` | intensity grid, row-major; the foot line names the range (first and last label) and the total, and joins a Latin unit with a space ("7 ms") but a CJK or `%` unit directly ("7次", "7%") |
 | `diff` | `{type:"diff", title?, path?, language?, lines:[{kind:"add"\|"del"\|"ctx", text}]}` | patch view with tints |
 | `kanban` | `{type:"kanban", title?, columns:[{title, tone?, cards:[{title, text?, badges?, tone?}]}]}` | board, horizontal scroll; under a 600px container the lanes stack one per row instead of scrolling out of view |
-| `tabs` | `{type:"tabs", title?, items:[{label, blocks:[Block,...]}]}` | local tab bar, one pane visible |
+| `tabs` | `{type:"tabs", title?, items:[{label, blocks:[Block,...]}]}` | host `SegmentedTabs` row over one visible pane |
 | `columns` | `{type:"columns", title?, items:[{label?, blocks:[Block,...]}], weights?:number[]}` | 2–3 block groups side by side; `weights` gives each column 1–3 fr shares (one integer per column, default equal, a mismatched list is ignored). The grid auto-fits and a container query folds a weighted grid back to one column under 560px. A column may not nest a tab or another column |
 | `code` | `{type:"code", code, language?, title?}` | monospace block, own scroll; highlighted with the host's own shiki tokens when the shell seeds `dsh-client-ui-primitives`, plain text otherwise |
 | `quote` | `{type:"quote", text, by?}` | pull quote |
@@ -466,8 +466,9 @@ seeds it into its frozen module table, so the loader resolves it before it looks
 package: a plugin factory reads the same instance the application renders with, without a
 copy and without a `dsh.client.external` declaration. It is not a documented contract and
 older shells do not seed it, so the probe is wrapped in `try`/`catch` and every consumer
-falls back to the plugin's own renderer — today the `code` block takes the host's
-`useCodeHighlighter` tokens, and plain text when they are not there.
+falls back to the plugin's own renderer — the `code` block takes the host's
+`useCodeHighlighter` tokens, plain text when they are not there, and the `tabs` row is the
+host's `SegmentedTabs` or a matching local segmented row.
 
 - `const inject = ['slots', 'locale']`
 - `apply(ctx)`: t = makeTranslator(ctx) (locale service via `ctx.get('locale')`, local zh/en

@@ -63,7 +63,7 @@
 ## 容器与布局
 
 - `columns` 并排分栏：`{"type":"columns","items":[{"blocks":[{"type":"text","text":"左"}]},{"blocks":[{"type":"text","text":"右"}]}]}`。最多 3 栏，`weights` 给每栏 1 到 3 份宽度。
-- `tabs` 标签页：`{"type":"tabs","items":[{"label":"概览","blocks":[{"type":"text","text":"..."}]}]}`。最多 5 页；页签内不能再嵌 `tabs` 或 `columns`。
+- `tabs` 标签页：`{"type":"tabs","items":[{"label":"概览","blocks":[{"type":"text","text":"..."}]}]}`。最多 5 页；页签内不能再嵌 `tabs` 或 `columns`。页签行直接用宿主的 `SegmentedTabs`（方向键切换、滑动指示块），探测不到时退回同款本地实现。
 
 ## 交互与动态
 

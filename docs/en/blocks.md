@@ -61,7 +61,7 @@
 ## Containers and layout
 
 - `columns` side-by-side panes: `{"type":"columns","items":[{"blocks":[{"type":"text","text":"左"}]},{"blocks":[{"type":"text","text":"右"}]}]}`. At most 3 panes; `weights` gives each pane 1 to 3 shares of width.
-- `tabs` tabbed panes: `{"type":"tabs","items":[{"label":"概览","blocks":[{"type":"text","text":"..."}]}]}`. At most 5 pages; pages cannot nest `tabs` or `columns`.
+- `tabs` tabbed panes: `{"type":"tabs","items":[{"label":"概览","blocks":[{"type":"text","text":"..."}]}]}`. At most 5 pages; pages cannot nest `tabs` or `columns`. The row is the host's own `SegmentedTabs` — arrow keys, sliding indicator — and a matching local row when the probe finds nothing.
 
 ## Interaction and dynamics
 

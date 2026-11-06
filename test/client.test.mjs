@@ -564,9 +564,11 @@ test('every color token used is one of the allowed theme tokens', () => {
     'bg-base',
     'bg-layer-1',
     'bg-layer-2',
+    'bg-layer-3',
     'bg-overlay',
     'border-l1',
     'border-l2',
+    'border-l3',
     'brand-primary',
     'label-primary',
     'label-secondary',
@@ -3202,6 +3204,64 @@ test('tabs render a tablist with one selected pane and keyboard selection', () =
   const nested = normalizeBlock({ type: 'tabs', items: [{ label: 'a', blocks: [{ type: 'tabs', items: [] }, { type: 'text', text: 'ok' }] }] })
   assert.deepEqual(nested.items[0].blocks.map((inner) => inner.type), ['text'])
   assert.equal(normalizeBlock({ type: 'tabs', items: [] }), null)
+})
+
+test('the tab row is the host SegmentedTabs when the shell exports it', () => {
+  const block = normalizeBlock({
+    type: 'tabs',
+    title: 'Services',
+    items: [
+      { label: 'API', blocks: [{ type: 'text', text: 'pane one' }] },
+      { label: 'Worker', blocks: [{ type: 'text', text: 'pane two' }] },
+    ],
+  })
+  // Stand-in for the host component: the element tree keeps it unrendered, so
+  // the props it would receive are read straight off the element.
+  function SegmentedTabs() {
+    return null
+  }
+  const primed = captured.factory((id) => {
+    if (id === 'react') return reactStub
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { SegmentedTabs }
+    throw new Error('unexpected require: ' + id)
+  })
+  const original = reactStub.useState
+  try {
+    reactStub.useState = () => [0, () => {}]
+    const tree = primed.__test.tabsBlock({ block, t: (token) => token, context: { t: (token) => token } })
+    // The host control replaces the local row; the card still owns the pane.
+    assert.equal(findAll(tree, (node) => node.props && node.props.role === 'tablist').length, 0)
+    const hostRow = findOne(tree, (node) => node.type === SegmentedTabs)
+    assert.ok(hostRow)
+    assert.equal(hostRow.props.value, 0)
+    assert.equal(hostRow.props.size, 'sm', 'a card wants the compact host size')
+    assert.equal(hostRow.props.label, 'Services', 'the block title names the tablist')
+    assert.equal(hostRow.props.className, 'dsh-sc-tabs-segmented')
+    assert.deepEqual(hostRow.props.items, [{ value: 0, label: 'API' }, { value: 1, label: 'Worker' }])
+    const panel = findOne(tree, (node) => node.props && node.props.role === 'tabpanel')
+    assert.ok(findOne(panel, (node) => node.type === 'p' && textOf(node) === 'pane one'))
+
+    // A value the shell hands back selects that tab; the label falls back to the
+    // dictionary when the block carries no title.
+    let next
+    reactStub.useState = (initial) => [initial, (value) => { next = value }]
+    const untitled = primed.__test.tabsBlock({
+      block: normalizeBlock({ type: 'tabs', items: block.items }),
+      t: (token) => token,
+      context: { t: (token) => token },
+    })
+    const untitledRow = findOne(untitled, (node) => node.type === SegmentedTabs)
+    assert.equal(untitledRow.props.label, 'tabs.label')
+    untitledRow.props.onChange(1)
+    assert.equal(next, 1)
+    assert.equal(untitledRow.props.value, 0, 'the rendered value is the state read back')
+  } finally {
+    reactStub.useState = original
+  }
+  // The stylesheet sizes the host row and drops the old frame around the pane.
+  const css = client.__test.css
+  assert.match(css, /\.dsh-sc-tabs-segmented \{ margin-bottom: 9px; \}/u)
+  assert.match(css, /\.dsh-sc-tabs-panel \{ display: flex; flex-direction: column; gap: 10px; min-width: 0; \}/u)
 })
 
 // ---------------------------------------------------------------------------

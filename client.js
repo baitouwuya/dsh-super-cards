@@ -283,6 +283,7 @@ window.__ModuleLoader__.load({
       'heatmap.label': '热力图',
       'heatmap.less': '少',
       'heatmap.more': '多',
+      'tabs.label': '卡片分区',
       'live.label': '实时',
       'live.empty': '暂无消息',
       'live.user': '你',
@@ -392,6 +393,7 @@ window.__ModuleLoader__.load({
       'code.show': 'Show all',
       'code.collapse': 'Collapse',
       'spark.label': 'Trend chart',
+      'tabs.label': 'Card sections',
       'live.label': 'Live',
       'live.empty': 'No messages yet',
       'live.user': 'You',
@@ -1387,44 +1389,72 @@ window.__ModuleLoader__.load({
   line-height: 1.7;
 }
 .dsh-sc-kanban-empty { font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
-/* Tabs: a compact bar over one visible pane; selection is local state. */
+/* Tabs: the shell's SegmentedTabs when it is exported, a matching local row
+   otherwise. Either way the pane below is plain block content — no second frame
+   around blocks that already draw their own. */
+.dsh-sc-tabs-block { display: flex; flex-direction: column; min-width: 0; }
+.dsh-sc-tabs-segmented { margin-bottom: 9px; }
 .dsh-sc-tabs {
-  border: 1px solid color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--dsw-alias-bg-layer-1);
-}
-.dsh-sc-tabs-list {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 2px;
-  padding: 4px;
-  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, var(--dsw-alias-bg-layer-1));
-  overflow-x: auto;
+  margin-bottom: 9px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--dsw-alias-bg-layer-2);
 }
 .dsh-sc-tab {
-  padding: 5px 12px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
+  line-height: 30px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease;
 }
-.dsh-sc-tab:hover { color: var(--dsw-alias-label-primary); background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent); }
+.dsh-sc-tab:hover { color: var(--dsw-alias-label-primary); }
 .dsh-sc-tab--on {
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
-  font-weight: 650;
+  font-weight: 600;
   box-shadow: 0 1px 2px color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+    inset 0 0 0 .5px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);
 }
 .dsh-sc-tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
-.dsh-sc-tabs-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.dsh-sc-tabs-panel { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* The host row is a grid of equal segments plus a sliding indicator, which is
+   right while every label fits on one line. A narrow card has no room for that:
+   the row becomes a wrapping flex line, each tab keeps its label, and the
+   selected tab carries the fill itself because the indicator only tracks equal
+   segments. The local row follows the same rule. */
+@container (max-width: 520px) {
+  .dsh-sc-tabs-block > .dsh-sc-tabs-segmented { display: flex; flex-wrap: wrap; gap: 2px; }
+  .dsh-sc-tabs-block > .dsh-sc-tabs-segmented > span[aria-hidden='true'] { display: none; }
+  .dsh-sc-tabs-block > .dsh-sc-tabs-segmented [role='tab'] {
+    flex: 1 1 0;
+    min-width: max-content;
+    padding: 0 10px;
+    line-height: 30px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .dsh-sc-tabs-block > .dsh-sc-tabs-segmented [role='tab'][aria-selected='true'] {
+    background: var(--dsw-alias-bg-layer-3);
+    box-shadow: inset 0 0 0 .5px var(--dsw-alias-border-l3);
+  }
+  .dsh-sc-tabs { display: flex; flex-wrap: wrap; }
+  .dsh-sc-tab { flex: 1 1 0; min-width: max-content; }
+}
 /* Columns: a row of block groups; the grid auto-fits, so a narrow card folds it
    back to one column without a media query. */
 .dsh-sc-cols {
@@ -5012,19 +5042,21 @@ ${COLUMN_RATIO_CSS}
     }
 
     /**
-     * Local tab selection. Panes are rendered by the same block registry, so a
-     * tab is a view of ordinary content, not a new kind of card.
+     * Build the local half of the tab row: only used when the shell does not
+     * expose `SegmentedTabs`. It mirrors the host markup (`role="tablist"`, one
+     * `role="tab"` per label, roving `tabIndex`) and the host look, so a card
+     * reads the same on an older shell.
      *
-     * @param {{ block: any, t: Function, context: any }} props - block, translator, render context.
+     * A plain builder rather than a component: it holds no state, and building
+     * the row inline keeps the tree flat for the card's own renderers.
+     *
+     * @param {{ items: any[], index: number, onSelect: Function, label?: string }} props
      * @returns {any}
      */
-    function TabsBlock(props) {
-      const { block, t, context } = props
-      const [active, setActive] = React.useState(0)
-      const count = block.items.length
-      const index = typeof active === 'number' && active >= 0 && active < count ? active : 0
-      const item = block.items[index]
-      const select = (next) => setActive(((next % count) + count) % count)
+    function localTabRow(props) {
+      const { items, index, onSelect, label } = props
+      const count = items.length
+      const select = (next) => onSelect(((next % count) + count) % count)
       const handleKey = (event) => {
         const name = event.key
         if (name === 'ArrowRight') {
@@ -5043,36 +5075,67 @@ ${COLUMN_RATIO_CSS}
       }
       return h(
         'div',
+        { className: PREFIX + 'tabs', role: 'tablist', 'aria-label': label, onKeyDown: handleKey },
+        items.map((entry, entryIndex) => h(
+          'button',
+          {
+            key: entryIndex,
+            type: 'button',
+            role: 'tab',
+            'aria-selected': entryIndex === index ? 'true' : 'false',
+            tabIndex: entryIndex === index ? 0 : -1,
+            className: PREFIX + 'tab' + (entryIndex === index ? ' ' + PREFIX + 'tab--on' : ''),
+            onClick: () => onSelect(entryIndex),
+          },
+          entry.label,
+        )),
+      )
+    }
+
+    /**
+     * Local tab selection. Panes are rendered by the same block registry, so a
+     * tab is a view of ordinary content, not a new kind of card.
+     *
+     * The row itself is the shell's `SegmentedTabs` when the frozen module table
+     * carries it: the host control owns the sliding indicator, the roving
+     * tabindex and the arrow keys, and a card then switches tabs exactly like
+     * the rest of the app. The card still owns the pane, because a pane is just
+     * more blocks.
+     *
+     * @param {{ block: any, t: Function, context: any }} props - block, translator, render context.
+     * @returns {any}
+     */
+    function TabsBlock(props) {
+      const { block, t, context } = props
+      const [active, setActive] = React.useState(0)
+      const count = block.items.length
+      const index = typeof active === 'number' && active >= 0 && active < count ? active : 0
+      const item = block.items[index]
+      const select = (next) => setActive(((next % count) + count) % count)
+      const HostTabs = PRIMITIVES && typeof PRIMITIVES.SegmentedTabs === 'function' ? PRIMITIVES.SegmentedTabs : null
+      const label = block.title || (typeof t === 'function' ? t('tabs.label') : undefined)
+      const row = HostTabs === null
+        ? localTabRow({ items: block.items, index, onSelect: setActive, label })
+        : h(HostTabs, {
+            className: PREFIX + 'tabs-segmented',
+            label,
+            size: 'sm',
+            value: index,
+            onChange: (value) => select(typeof value === 'number' ? value : index),
+            items: block.items.map((entry, entryIndex) => ({ value: entryIndex, label: entry.label })),
+          })
+      return h(
+        'div',
         { className: PREFIX + 'tabs-block' },
         block.title ? h('div', { className: PREFIX + 'block-title' }, richChildren(block.title, 'tabsTitle')) : null,
+        row,
         h(
           'div',
-          { className: PREFIX + 'tabs' },
-          h(
-            'div',
-            { className: PREFIX + 'tabs-list', role: 'tablist', onKeyDown: handleKey },
-            block.items.map((entry, entryIndex) => h(
-              'button',
-              {
-                key: entryIndex,
-                type: 'button',
-                role: 'tab',
-                'aria-selected': entryIndex === index ? 'true' : 'false',
-                tabIndex: entryIndex === index ? 0 : -1,
-                className: PREFIX + 'tab' + (entryIndex === index ? ' ' + PREFIX + 'tab--on' : ''),
-                onClick: () => setActive(entryIndex),
-              },
-              entry.label,
-            )),
-          ),
-          h(
-            'div',
-            { className: PREFIX + 'tabs-panel', role: 'tabpanel' },
-            item.blocks.map((innerBlock, innerIndex) => {
-              const node = renderBlock(innerBlock, 'tab' + innerIndex, context)
-              return node === null ? null : withMotion(node, innerBlock)
-            }),
-          ),
+          { className: PREFIX + 'tabs-panel', role: 'tabpanel' },
+          item.blocks.map((innerBlock, innerIndex) => {
+            const node = renderBlock(innerBlock, 'tab' + innerIndex, context)
+            return node === null ? null : withMotion(node, innerBlock)
+          }),
         ),
       )
     }
