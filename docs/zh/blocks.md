@@ -74,7 +74,7 @@
 ## 富媒体
 
 - `code` 代码块：`{"type":"code","language":"bash","code":"dsh deploy --prod"}`。`language`、`title` 可选，代码内不解析行内标记。宿主把 `@deepseek-ai/dsh-client-ui-primitives` 放进模块表时，代码用宿主自己的 shiki 上色（与正文代码块同一套 `--shiki-*` 色板，语言按需懒加载），探测不到就退回纯文本。
-- `image` 图片：`{"type":"image","src":"https://example.com/chart.png","alt":"延迟趋势"}`。`src` 只接受 `https`、`http` 或 `data:image/*`；`height` 为 80 到 640，`fit` 取 `cover` 或 `contain`。
+- `image` 图片：`{"type":"image","src":"https://example.com/chart.png","alt":"延迟趋势"}`。`src` 只接受 `https`、`http` 或 `data:image/*`；`height` 为 80 到 640。`fit:"cover"` 按该高度裁成横幅；`fit:"contain"`（默认）保留图片原比例、以该高度为上限，外框收缩到图片大小而不是左右留白。图片在 42em 的居中栏里，宽卡片不会把它拉满整行。
 - `html` 自定义视觉：`{"type":"html","height":160,"html":"<div class='orb'></div>"}`。渲染在沙箱 iframe 里，无网络、无同源权限；源码上限 20000 字符，`height` 为 120 到 800。
 
 任意区块都可以额外带一个 `motion` 对象，细节见 [进阶能力](advanced.md)。

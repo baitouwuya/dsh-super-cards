@@ -72,7 +72,7 @@
 ## Rich media
 
 - `code` code block: `{"type":"code","language":"bash","code":"dsh deploy --prod"}`. `language` and `title` are optional; inline marks are not parsed inside code. When the host seeds `@deepseek-ai/dsh-client-ui-primitives`, the block is colored by the host's own shiki instance — the same `--shiki-*` palette as the transcript's code blocks, with languages loaded lazily — and falls back to plain text when the probe finds nothing.
-- `image` image: `{"type":"image","src":"https://example.com/chart.png","alt":"延迟趋势"}`. `src` accepts only `https`, `http`, or `data:image/*`; `height` is 80 to 640; `fit` takes `cover` or `contain`.
+- `image` image: `{"type":"image","src":"https://example.com/chart.png","alt":"延迟趋势"}`. `src` accepts only `https`, `http`, or `data:image/*`; `height` is 80 to 640. `fit:"cover"` crops the picture to a banner of that height; `fit:"contain"` (the default) keeps its own aspect ratio, no taller than that height, and shrinks the frame to the picture instead of letterboxing it. A figure sits in a centred 42em column, so a wide card does not stretch it across the row.
 - `html` custom visual: `{"type":"html","height":160,"html":"<div class='orb'></div>"}`. Rendered in a sandboxed iframe, with no network or same-origin access; source limit is 20000 characters, `height` is 120 to 800.
 
 Every block can additionally carry a `motion` object; details in [Advanced capabilities](advanced.md).

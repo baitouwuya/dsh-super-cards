@@ -573,6 +573,7 @@ test('every color token used is one of the allowed theme tokens', () => {
     'brand-primary',
     'label-primary',
     'label-secondary',
+    'label-tertiary',
     'state-error-primary',
     'state-idle-primary',
     'state-success-primary',
@@ -3880,9 +3881,33 @@ test('image: renders a lazy, no-referrer frame with alt text and a caption', () 
   assert.equal(img.props.loading, 'lazy')
   assert.equal(img.props.decoding, 'async')
   assert.equal(img.props.referrerPolicy, 'no-referrer')
-  assert.deepEqual(img.props.style, { height: '200px', objectFit: 'contain' })
+  // "contain" (the default) keeps the picture's own aspect: the height the block
+  // asks for is an upper bound, and the stylesheet caps it, so no inline box.
+  assert.equal(img.props.style, undefined)
+  assert.equal(tree.props['data-fit'], 'contain')
+  assert.deepEqual(tree.props.style, { '--dsh-sc-img-h': '200px' })
   const caption = findOne(tree, (node) => hasClass(node, 'dsh-sc-image-caption'))
   assert.equal(textOf(caption), 'Latency trend')
+})
+
+test('image: a figure shares the card measure, and a contained picture hugs its frame', () => {
+  const cover = mount(renderBlock(
+    normalizeBlock({ type: 'image', src: 'https://example.com/a.png', height: 180, fit: 'cover' }),
+    'img',
+    { t: (token) => token },
+  ))
+  assert.equal(cover.props['data-fit'], 'cover')
+  assert.deepEqual(cover.props.style, { '--dsh-sc-img-h': '180px' })
+  const covered = findOne(cover, (node) => node.type === 'img')
+  assert.deepEqual(covered.props.style, { height: '180px', objectFit: 'cover' })
+
+  // The stylesheet owns both shapes: one figure column, and a frame that shrinks
+  // to a contained picture instead of letterboxing it inside the full width.
+  const css = client.__test.css
+  assert.match(css, /\.dsh-sc-image-block \{[^}]*width: min\(100%, 42em\);/u)
+  assert.match(css, /\.dsh-sc-image-block\[data-fit='cover'\] \.dsh-sc-image-link,[^}]*width: 100%;/u)
+  assert.match(css, /\.dsh-sc-image-block\[data-fit='contain'\] \.dsh-sc-image-frame \{[^}]*width: fit-content;/u)
+  assert.match(css, /\.dsh-sc-image-block\[data-fit='contain'\] \.dsh-sc-image-media \{[^}]*max-height: var\(--dsh-sc-img-h, 240px\);/u)
 })
 
 test('image: a data URI is not a link, and a load failure becomes a readable tile', () => {
