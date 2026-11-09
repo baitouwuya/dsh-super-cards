@@ -3881,33 +3881,33 @@ test('image: renders a lazy, no-referrer frame with alt text and a caption', () 
   assert.equal(img.props.loading, 'lazy')
   assert.equal(img.props.decoding, 'async')
   assert.equal(img.props.referrerPolicy, 'no-referrer')
-  // "contain" (the default) keeps the picture's own aspect: the height the block
-  // asks for is an upper bound, and the stylesheet caps it, so no inline box.
+  // No frame is imposed: the picture keeps its own aspect ratio at the width it
+  // is given, so there is no inline height, no fit and no crop.
   assert.equal(img.props.style, undefined)
-  assert.equal(tree.props['data-fit'], 'contain')
-  assert.deepEqual(tree.props.style, { '--dsh-sc-img-h': '200px' })
+  assert.equal(tree.props['data-fit'], undefined)
+  assert.equal(block.height, undefined)
+  assert.equal(block.fit, undefined)
   const caption = findOne(tree, (node) => hasClass(node, 'dsh-sc-image-caption'))
   assert.equal(textOf(caption), 'Latency trend')
 })
 
-test('image: a figure shares the card measure, and a contained picture hugs its frame', () => {
-  const cover = mount(renderBlock(
-    normalizeBlock({ type: 'image', src: 'https://example.com/a.png', height: 180, fit: 'cover' }),
-    'img',
-    { t: (token) => token },
-  ))
-  assert.equal(cover.props['data-fit'], 'cover')
-  assert.deepEqual(cover.props.style, { '--dsh-sc-img-h': '180px' })
-  const covered = findOne(cover, (node) => node.type === 'img')
-  assert.deepEqual(covered.props.style, { height: '180px', objectFit: 'cover' })
+test('image: the picture is shown whole at the card width, never cropped', () => {
+  // A spec recorded before this rule may still carry a height and a fit; both
+  // are dropped so the picture is neither cropped nor letterboxed.
+  const block = normalizeBlock({ type: 'image', src: 'https://example.com/a.png', height: 180, fit: 'cover' })
+  assert.equal(block.height, undefined)
+  assert.equal(block.fit, undefined)
+  const tree = mount(renderBlock(block, 'img', { t: (token) => token }))
+  const img = findOne(tree, (node) => node.type === 'img')
+  assert.equal(img.props.style, undefined)
 
-  // The stylesheet owns both shapes: one figure column, and a frame that shrinks
-  // to a contained picture instead of letterboxing it inside the full width.
+  // The stylesheet owns the size: full width, natural aspect, nothing cropped.
   const css = client.__test.css
-  assert.match(css, /\.dsh-sc-image-block \{[^}]*width: min\(100%, 42em\);/u)
-  assert.match(css, /\.dsh-sc-image-block\[data-fit='cover'\] \.dsh-sc-image-link,[^}]*width: 100%;/u)
-  assert.match(css, /\.dsh-sc-image-block\[data-fit='contain'\] \.dsh-sc-image-frame \{[^}]*width: fit-content;/u)
-  assert.match(css, /\.dsh-sc-image-block\[data-fit='contain'\] \.dsh-sc-image-media \{[^}]*max-height: var\(--dsh-sc-img-h, 240px\);/u)
+  assert.match(css, /\.dsh-sc-image-block \{ margin: 2px 0;/u)
+  assert.match(css, /\.dsh-sc-image-link,\n\.dsh-sc-image-frame \{\n  display: block;\n  width: 100%;/u)
+  assert.match(css, /\.dsh-sc-image-media \{ display: block; width: 100%; height: auto; max-width: 100%; \}/u)
+  assert.equal(css.includes('object-fit'), false, 'no frame crops the picture any more')
+  assert.equal(css.includes('data-fit'), false, 'the fit modes are gone')
 })
 
 test('image: a data URI is not a link, and a load failure becomes a readable tile', () => {
@@ -3934,10 +3934,10 @@ test('image: refuses unsafe schemes and clamps the frame in the client too', () 
   assert.equal(normalizeBlock({ type: 'image', src: 'javascript:alert(1)' }), null)
   assert.equal(normalizeBlock({ type: 'image', src: 'file:///tmp/a.png' }), null)
   assert.equal(normalizeBlock({ type: 'image', src: 'https://example.com/a b.png' }), null)
-  const high = normalizeBlock({ type: 'image', src: 'https://example.com/a.png', height: 9999 })
-  assert.equal(high.height, 640)
-  const low = normalizeBlock({ type: 'image', src: 'https://example.com/a.png', height: 1 })
-  assert.equal(low.height, 80)
+  // A height in an old spec is ignored rather than clamped: nothing sizes the
+  // picture but its own aspect ratio and the card width.
+  assert.equal(normalizeBlock({ type: 'image', src: 'https://example.com/a.png', height: 9999 }).height, undefined)
+  assert.equal(normalizeBlock({ type: 'image', src: 'https://example.com/a.png', fit: 'cover' }).fit, undefined)
 })
 
 test('image: markdown export keeps the source and the caption', () => {

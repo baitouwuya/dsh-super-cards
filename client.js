@@ -1494,52 +1494,28 @@ ${COLUMN_RATIO_CSS}
   color: var(--dsw-alias-label-secondary);
   text-transform: uppercase;
 }
-/* Inline image: a quiet frame with an optional caption; the frame owns the
-   radius and border, so both a plain image and a linked one look identical.
- *
- * Two fits, two shapes. "cover" asks for a fixed height, so the frame is a
- * banner as wide as the card's figure column. "contain" asks to see the whole
- * picture, so the frame shrinks to the picture instead of letterboxing it: the
- * image renders at its own aspect ratio, at most as tall as the block asked for
- * and no wider than the card, and the frame hugs it. A 9:19 phone screenshot
- * then reads as a phone, not as a white slab with a picture lost inside it. */
-.dsh-sc-image-block {
-  margin: 2px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-self: center;
-  gap: 7px;
-  width: min(100%, 42em);
-  max-width: 100%;
-}
+/* Inline image: the picture is the content, so the card gives it the width it
+   has and never crops it. The picture keeps its own aspect ratio (a 9:19
+   screenshot stays a tall phone, a 2:1 social card stays a wide card), the
+   border and radius live on the frame, and the caption sits under the picture
+   in the quietest label. Nothing is letterboxed into a fixed frame and no
+   height is imposed: a fixed height is exactly what made a screenshot
+   unreadable and a photo a 4:1 strip. */
+.dsh-sc-image-block { margin: 2px 0; display: flex; flex-direction: column; gap: 7px; }
 .dsh-sc-image-link,
 .dsh-sc-image-frame {
   display: block;
-  overflow: hidden;
+  width: 100%;
   max-width: 100%;
+  overflow: hidden;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
   background: var(--dsw-alias-bg-layer-2);
 }
-.dsh-sc-image-block[data-fit='cover'] .dsh-sc-image-link,
-.dsh-sc-image-block[data-fit='cover'] .dsh-sc-image-frame { width: 100%; }
 .dsh-sc-image-link:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
-.dsh-sc-image-media { display: block; width: 100%; max-width: 100%; }
-.dsh-sc-image-block[data-fit='contain'] .dsh-sc-image-link,
-.dsh-sc-image-block[data-fit='contain'] .dsh-sc-image-frame {
-  width: fit-content;
-  margin-inline: auto;
-}
-.dsh-sc-image-block[data-fit='contain'] .dsh-sc-image-media {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: var(--dsh-sc-img-h, 240px);
-}
+.dsh-sc-image-media { display: block; width: 100%; height: auto; max-width: 100%; }
 .dsh-sc-image-caption {
   margin: 0;
-  max-width: 100%;
   text-align: center;
   font-size: 11.5px;
   line-height: 1.55;
@@ -1550,6 +1526,7 @@ ${COLUMN_RATIO_CSS}
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 96px;
   color: var(--dsw-alias-label-secondary);
   font-size: 12.5px;
 }
@@ -3509,14 +3486,14 @@ ${COLUMN_RATIO_CSS}
       if (src === undefined) return null
       const caption = optionalText(raw.caption, 300)
       const alt = optionalText(raw.alt, 300)
-      const height = finiteNumber(raw.height)
+      // An old spec may still carry `height` and `fit`: they are dropped here,
+      // because the card shows the whole picture at its own aspect ratio and
+      // never crops it to a height that was chosen for a different context.
       return {
         type: 'image',
         src,
         alt: alt === undefined ? caption : alt,
         caption,
-        height: height === null ? 240 : Math.max(80, Math.min(640, Math.round(height))),
-        fit: raw.fit === 'cover' ? 'cover' : 'contain',
       }
     }
 
@@ -5327,13 +5304,11 @@ ${COLUMN_RATIO_CSS}
     function ImageBlock(props) {
       const { block, t } = props
       const [failed, setFailed] = React.useState(false)
-      const height = typeof block.height === 'number' ? block.height : 240
       const alt = block.alt || block.caption || t('image.label')
-      const fit = block.fit === 'cover' ? 'cover' : 'contain'
       const media = failed
         ? h(
             'div',
-            { className: PREFIX + 'image-fallback', style: { height: height + 'px' }, role: 'img', 'aria-label': alt },
+            { className: PREFIX + 'image-fallback', role: 'img', 'aria-label': alt },
             iconGlyph('warning'),
             h('span', { className: PREFIX + 'image-fallback-text' }, t('image.failed')),
           )
@@ -5345,9 +5320,6 @@ ${COLUMN_RATIO_CSS}
             decoding: 'async',
             referrerPolicy: 'no-referrer',
             draggable: false,
-            style: fit === 'cover'
-              ? { height: height + 'px', objectFit: 'cover' }
-              : undefined,
             onError: () => setFailed(true),
           })
       const remote = /^https?:/i.test(block.src)
@@ -5373,15 +5345,7 @@ ${COLUMN_RATIO_CSS}
           h('figcaption', { key: 'caption', className: PREFIX + 'image-caption' }, richChildren(block.caption, 'imgcap')),
         )
       }
-      return h(
-        'figure',
-        {
-          className: PREFIX + 'image-block',
-          'data-fit': fit,
-          style: { '--dsh-sc-img-h': height + 'px' },
-        },
-        children,
-      )
+      return h('figure', { className: PREFIX + 'image-block' }, children)
     }
 
     /**
@@ -5728,7 +5692,7 @@ ${COLUMN_RATIO_CSS}
         case 'links': return (Array.isArray(block.items) ? block.items.length : 0) * 44
         case 'tree': return Math.min(10, contentTreeNodes(block.nodes)) * 24 + 8
         case 'code': return 40 + Math.min(14, String(block.code || '').split('\n').length) * 17
-        case 'image': return typeof block.height === 'number' ? block.height : 240
+        case 'image': return 320
         default: return CONTENT_BLOCK_HEIGHT[type] === undefined ? 60 : CONTENT_BLOCK_HEIGHT[type]
       }
     }
