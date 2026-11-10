@@ -27,7 +27,7 @@ Only an explicit `nextSteps: true` enables it; omission or a non-boolean value c
 3. It resolves the route: an explicitly configured provider and model pair takes priority; otherwise it uses the provider and model in the session request header.
 4. It sends one very small model request and asks for a single JSON object; the input answer is at most 6000 characters, truncated beyond that.
 5. It parses the JSON defensively: tolerating code fences and surrounding prose, also accepting a bare options array, deduplicating and truncating fields.
-6. It appends a `super-cards/next-steps` session event: `{turn, summary?, text, options, at}`.
+6. It appends one `plugin:super-cards/next-steps` plugin record: `{turn, summary?, text, options, at}`. The record is written through the Host's `appendPluginRecord`, which marks it `ignorable`; a Host that does not know the type then keeps the log loadable and skips it. A Host without that writer writes nothing and spends no model call.
 7. The Client renders it in the `tail` position: optional recap, one question, a row of buttons, with the first option as the primary button.
 
 ## Generation contract

@@ -45,7 +45,7 @@ Every spec a card needs comes from the tool-call arguments recorded in the sessi
 - Cards therefore survive replay, resume, and fork, and render in the same shape.
 - Tool errors render as a small error card; an error boundary backs up the render component, so a conversation row is never blanked.
 - When `tools.render_ui` is called inside a `run_code` script, the log has no top-level `tool/call`, only PTC dispatch events (`tool/ptc-dispatch-start`, `tool/ptc-dispatch`). The row definition matches all three events, one call produces exactly one row, and settlement events only refresh arguments without adding cards.
-- The card itself appends no new session events; the only plugin event is `super-cards/next-steps`, written only when automatic next steps are explicitly enabled.
+- The card itself appends no new session events; the only plugin record is `plugin:super-cards/next-steps`, written only when automatic next steps are explicitly enabled. It goes through the Host's `appendPluginRecord` so it carries `ignorable: true`: an unknown type without that marker makes the Host refuse the whole log. The Client also reads the pre-0.16 `super-cards/next-steps` name.
 
 ## Progressive disclosure
 

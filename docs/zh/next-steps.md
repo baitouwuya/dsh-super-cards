@@ -29,7 +29,7 @@ config:
 3. 解析路由：显式配置的 provider 与 model 成对优先；否则用会话请求头里的 provider 与 model。
 4. 发一次很小的模型请求，要求只返回一个 JSON 对象；输入回答最多 6000 字符，超出截断。
 5. 防御式解析 JSON：容忍代码围栏与前后说明，裸选项数组也接受，去重并截断字段。
-6. 追加一条 `super-cards/next-steps` 会话事件：`{turn, summary?, text, options, at}`。
+6. 追加一条 `plugin:super-cards/next-steps` 插件记录：`{turn, summary?, text, options, at}`。写入走宿主的 `appendPluginRecord`，它会盖上 `ignorable` 标记；宿主不认识这个类型时只跳过这一条、日志照常加载。宿主没有这个写口就什么都不写，也不花模型调用。
 7. Client 把它渲染在 `tail` 位置：可选简述、一句问题、一排按钮，第一个选项是主按钮。
 
 ## 生成契约

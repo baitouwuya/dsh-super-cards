@@ -49,8 +49,9 @@ Client 行定义匹配事件，从记录参数重建卡片
 - `run_code` 脚本里调用 `tools.render_ui` 时，日志里没有顶层 `tool/call`，只有 PTC 派发事件
   （`tool/ptc-dispatch-start`、`tool/ptc-dispatch`）。行定义同时匹配这三种事件，同一次调用只生成
   一行，结算事件只刷新参数、不新增卡片。
-- 卡片本身不追加新的会话事件；唯一的插件事件是显式开启自动下一步后的
-  `super-cards/next-steps`。
+- 卡片本身不追加新的会话事件；唯一的插件记录是显式开启自动下一步后的
+  `plugin:super-cards/next-steps`。它走宿主的 `appendPluginRecord` 写入，因此带 `ignorable: true`：
+  未知类型缺这个标记会让宿主拒绝解释整本日志。Client 同时认 0.16 之前的 `super-cards/next-steps` 旧名。
 
 ## 渐进披露
 

@@ -26,6 +26,8 @@ const {
 } = __test
 const {
   NEXT_STEPS_EVENT,
+  NEXT_STEPS_EVENT_LEGACY,
+  isNextStepsEventType,
   NEXT_STEPS_SOURCE,
   NEXT_STEPS_LIMITS,
   NEXT_STEPS_DEFAULTS,
@@ -41,6 +43,20 @@ const {
   hasNextStepsEvent,
   installNextSteps,
 } = __test
+
+/**
+ * Stand-in for the Host's `appendPluginRecord`.
+ *
+ * The real writer stamps `ignorable: true` and the `plugin:` namespace; the fake
+ * records the same envelope on the fake session so the wire contract stays under
+ * test. Install it as `env.appendPluginRecord`.
+ */
+function fakeRecordWriter(session, type, data) {
+  return session.append(type, data)
+}
+
+/** Install environment carrying the record writer (real timers). */
+const RECORD_ENV = { appendPluginRecord: fakeRecordWriter }
 
 /** The canonical example from SPEC.md, used verbatim in the tool description. */
 const CANONICAL = {
@@ -278,7 +294,7 @@ test('apply() registers the tool and the prompt section inside effects, and disp
   assert.equal(sessionListeners(), 0)
   // Only an explicit `nextSteps: true` installs exactly one listener.
   const enabledFake = createFakeCtx()
-  apply(enabledFake.ctx, { nextSteps: true })
+  apply(enabledFake.ctx, { nextSteps: true }, RECORD_ENV)
   assert.equal((enabledFake.listeners.get('session/event') ?? []).length, 1)
 
   // Disposing the renderer's effect removes only the renderer tool.
@@ -1290,6 +1306,14 @@ test('host modules are self-contained: only relative imports, no console, timers
         || (file === '../lib/config.js' && match[1] === '@deepseek-ai/schemastery')
       assert.ok(allowed, `${file} may only import relative modules, got ${match[1]}`)
     }
+    // One deliberate exception to self-containment: the next-step generator
+    // resolves the Host's `appendPluginRecord` lazily, through a guarded
+    // dynamic import, so a Host without that export loses one optional card
+    // instead of the whole plugin. Nothing else may reach outside the package.
+    for (const match of source.matchAll(/import\('([^']+)'\)/g)) {
+      assert.equal(match[1], '@deepseek-ai/dsh-session', `${file} may only dynamically import the Host session package`)
+      assert.equal(file, '../lib/next-steps.js', 'only the next-step generator resolves a Host module')
+    }
     assert.equal(/\bconsole\./.test(source), false, `${file} must not write to the console`)
     // Every module is timer-free except the next-step generator, whose single
     // one-shot timeout bounds the auxiliary request; it must be cleared on
@@ -2146,7 +2170,7 @@ test('a delegated child session never generates a next-step card', async () => {
     { type: 'finish', reason: { kind: 'stop' } },
   ])
   const fake = createFakeCtx({ llm })
-  apply(fake.ctx, { nextSteps: true })
+  apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
   // Subagent children end their own turns constantly; a card there is noise.
   for (const sessionHeader of [{ origin: 'subagent' }, { parentSession: 'parent-one' }, { delegationDepth: 2 }]) {
     const session = createFakeSession({
@@ -2169,7 +2193,7 @@ test('a completed turn appends exactly one next-step event with the wire contrac
   ])
   const fake = createFakeCtx({ llm })
   const session = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
-  apply(fake.ctx, { nextSteps: true })
+  apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
   assert.equal(fake.listeners.get('session/event').length, 1)
 
   emit(fake, 'session/event', session, turnEnd(1, 1))
@@ -2210,6 +2234,80 @@ test('a completed turn appends exactly one next-step event with the wire contrac
   assert.equal(fake.listeners.get('session/event').length, 0)
 })
 
+test('the generated event is written under the plugin record namespace', async () => {
+  // Why this exact shape: the Host keeps a log loadable when it meets an event
+  // type it does not know only if the event is `ignorable`, and
+  // `appendPluginRecord` is the single writer that stamps that marker — it also
+  // accepts nothing but a `plugin:`-namespaced name.
+  assert.equal(NEXT_STEPS_EVENT, 'plugin:super-cards/next-steps')
+  assert.equal(NEXT_STEPS_EVENT_LEGACY, 'super-cards/next-steps')
+  assert.equal(isNextStepsEventType(NEXT_STEPS_EVENT), true)
+  assert.equal(isNextStepsEventType(NEXT_STEPS_EVENT_LEGACY), true)
+  assert.equal(isNextStepsEventType('assistant/message'), false)
+  assert.equal(isNextStepsEventType(undefined), false)
+
+  const seen = []
+  const llm = createFakeLlm([
+    { type: 'text-delta', index: 0, text: NEXT_STEPS_OUTPUT },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ])
+  const fake = createFakeCtx({ llm })
+  const session = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
+  apply(fake.ctx, { nextSteps: true }, {
+    appendPluginRecord(recorded, type, data) {
+      seen.push({ sameSession: recorded === session, type })
+      return recorded.append(type, data)
+    },
+  })
+  emit(fake, 'session/event', session, turnEnd(1, 1))
+  await flush()
+
+  assert.deepEqual(seen, [{ sameSession: true, type: 'plugin:super-cards/next-steps' }])
+  assert.equal(session.appended.length, 1)
+  assert.equal(session.appended[0].type, NEXT_STEPS_EVENT)
+  assert.equal(session.appended[0].data.turn, 1)
+})
+
+test('a host without the record writer appends nothing and spends no model call', async () => {
+  const chunks = [
+    { type: 'text-delta', index: 0, text: NEXT_STEPS_OUTPUT },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+  // `null` pins "this Host exposes no appendPluginRecord": the generator must
+  // stay silent rather than fall back to `session.append`, whose event the Host
+  // would refuse to load.
+  const quietLlm = createFakeLlm(chunks)
+  const noWriter = createFakeCtx({ llm: quietLlm })
+  const quietSession = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
+  apply(noWriter.ctx, { nextSteps: true }, { appendPluginRecord: null })
+  emit(noWriter, 'session/event', quietSession, turnEnd(1, 1))
+  await flush()
+  assert.equal(quietSession.appended.length, 0, 'nothing is written without a safe writer')
+  assert.equal(quietLlm.calls.length, 0, 'the turn spends no model call either')
+  assert.equal(noWriter.listeners.get('session/event').length, 1, 'the listener stays installed')
+
+  // A writer that throws is contained like any other append failure.
+  const throwing = createFakeCtx({ llm: createFakeLlm(chunks) })
+  const busySession = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
+  apply(throwing.ctx, { nextSteps: true }, {
+    appendPluginRecord() {
+      throw new Error('read-only')
+    },
+  })
+  emit(throwing, 'session/event', busySession, turnEnd(1, 1))
+  await flush()
+  assert.equal(busySession.appended.length, 0)
+  assert.equal(throwing.listeners.get('session/event').length, 1)
+})
+
+test('the duplicate check matches both recorded spellings', () => {
+  const data = { turn: 2, text: 'q', options: [{ label: 'a', prompt: 'b' }], at: 1 }
+  assert.equal(hasNextStepsEvent([{ type: NEXT_STEPS_EVENT, data }], 2), true)
+  assert.equal(hasNextStepsEvent([{ type: NEXT_STEPS_EVENT_LEGACY, data }], 2), true, 'legacy logs still suppress a second write')
+  assert.equal(hasNextStepsEvent([{ type: NEXT_STEPS_EVENT_LEGACY, data }], 3), false)
+  assert.equal(hasNextStepsEvent([], 2), false)
+})
+
 test('nothing is appended when a skip condition holds', async () => {
   const chunks = [{ type: 'text-delta', index: 0, text: NEXT_STEPS_OUTPUT }, { type: 'finish', reason: { kind: 'stop' } }]
   const scenarios = [
@@ -2230,7 +2328,7 @@ test('nothing is appended when a skip condition holds', async () => {
     const llm = createFakeLlm(chunks)
     const fake = createFakeCtx(scenario.noLlm === true ? {} : { llm })
     const session = createFakeSession({ events: scenario.events, header: scenario.header })
-    apply(fake.ctx, { nextSteps: true })
+    apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
     emit(fake, 'session/event', session, turnEnd(9, 1))
     await flush()
     assert.equal(session.appended.length, 0, scenario.name + ' must append nothing')
@@ -2249,7 +2347,7 @@ test('unusable model output appends nothing and never rejects', async () => {
     const llm = createFakeLlm(chunks)
     const fake = createFakeCtx({ llm })
     const session = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
-    apply(fake.ctx, { nextSteps: true })
+    apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
     emit(fake, 'session/event', session, turnEnd(1, 1))
     await flush()
     assert.equal(session.appended.length, 0)
@@ -2259,7 +2357,7 @@ test('unusable model output appends nothing and never rejects', async () => {
   const throwing = { stream() { throw new Error('provider down') } }
   const fake = createFakeCtx({ llm: throwing })
   const session = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
-  apply(fake.ctx, { nextSteps: true })
+  apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
   emit(fake, 'session/event', session, turnEnd(1, 1))
   await flush()
   assert.equal(session.appended.length, 0)
@@ -2273,7 +2371,7 @@ test('one generation per session and turn/start aborts the in-flight request', a
   )
   const fake = createFakeCtx({ llm })
   const session = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
-  apply(fake.ctx, { nextSteps: true })
+  apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
 
   emit(fake, 'session/event', session, turnEnd(1, 1))
   await flush()
@@ -2313,11 +2411,11 @@ test('the request times out, and disposal aborts work and clears the timer', asy
   )
   const fake = createFakeCtx({ llm })
   const session = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
-  apply(fake.ctx, { nextSteps: true, nextStepsTimeoutMs: 2000 })
+  apply(fake.ctx, { nextSteps: true, nextStepsTimeoutMs: 2000 }, RECORD_ENV)
   // The row config is only a seam for the runtime timers; install() takes the
   // overrides directly so the test never waits two real seconds.
   fake.effects[4].dispose()
-  const dispose = installNextSteps(fake.ctx, { nextSteps: true, nextStepsTimeoutMs: 2000 }, env)
+  const dispose = installNextSteps(fake.ctx, { nextSteps: true, nextStepsTimeoutMs: 2000 }, { ...env, appendPluginRecord: fakeRecordWriter })
 
   emit(fake, 'session/event', session, turnEnd(1, 1))
   await flush()
@@ -2341,7 +2439,7 @@ test('the request times out, and disposal aborts work and clears the timer', asy
   )
   const secondFake = createFakeCtx({ llm: secondLlm })
   const secondSession = createFakeSession({ events: [assistantEvent(0, 1, LONG_REPLY)], header: ROUTE_HEADER })
-  const secondDispose = installNextSteps(secondFake.ctx, { nextSteps: true }, env)
+  const secondDispose = installNextSteps(secondFake.ctx, { nextSteps: true }, { ...env, appendPluginRecord: fakeRecordWriter })
   emit(secondFake, 'session/event', secondSession, turnEnd(1, 1))
   await flush()
   const secondSignal = secondLlm.calls[0].signal
@@ -2356,7 +2454,7 @@ test('the request times out, and disposal aborts work and clears the timer', asy
 
 test('the session event handler never throws on hostile input', async () => {
   const fake = createFakeCtx({ llm: createFakeLlm([]) })
-  apply(fake.ctx, { nextSteps: true })
+  apply(fake.ctx, { nextSteps: true }, RECORD_ENV)
   const hostile = [
     [undefined, undefined],
     [{}, null],

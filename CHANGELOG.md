@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.16.0 — 2026-11-10
+
+### Fixed
+
+- **The automatic next-step card could make a conversation impossible to open.** With
+  `nextSteps: true`, 0.12.2 through 0.15.0 appended `super-cards/next-steps` through
+  `Session#append`. That event carries no `ignorable` marker, and its type is outside the Host's
+  `KNOWN_SESSION_EVENT_TYPES`, so the next time the Host loaded the log it refused to interpret the
+  *whole* conversation — not just the card — with `contains event type "super-cards/next-steps" …
+  unknown to this harness and not marked ignorable`. It happened silently, because the write path
+  does not validate and the call was already wrapped in `try/catch`. Reported in
+  [issue #1](https://github.com/baitouwuya/dsh-super-cards/issues/1), whose reproduction and log
+  evidence matched the code exactly.
+- The event is now written through the Host's `appendPluginRecord` as the plugin record
+  `plugin:super-cards/next-steps`, which stamps `ignorable: true`. A Host that does not know the
+  type then retains and skips that one event instead of rejecting the log. `appendPluginRecord`
+  accepts no other name shape, which is why the type is namespaced.
+- The writer is resolved lazily, through a guarded dynamic import instead of a static one, and the
+  generator treats a missing writer as "skip this turn": no event is written and no model call is
+  spent. A Host without the export loses one optional card; it must never lose a session log. A
+  static import would also have failed plugin load entirely, taking every card with it.
+- `package.json` now declares `@deepseek-ai/dsh-session` as a peer dependency, because the Host
+  routes a bare `@deepseek-ai/*` import to its own installation only for names a plugin lists as
+  peers. The range spans every 0.x Host (`>=0.2.0-0 <1.0.0-0`, prereleases included) so the
+  compatibility gate never denies the plugin on a Host the runtime detection already handles, and
+  the declaration is marked optional so npm does not install a second copy of a Host package.
+- The Client reads both spellings: the current `plugin:super-cards/next-steps` record and the legacy
+  `super-cards/next-steps` event. A log repaired in place by adding the marker still renders its
+  card. `hasNextStepsEvent` matches both too, so a repaired turn never gets a second event.
+- Logs already written by 0.12.2–0.15.0 are not repaired by upgrading: each affected event needs the
+  `ignorable` marker added offline. [issue #1](https://github.com/baitouwuya/dsh-super-cards/issues/1)
+  carries the symptom and the repair path; the troubleshooting doc now points there.
+
 ## 0.15.0 — 2026-11-10
 
 ### Changed

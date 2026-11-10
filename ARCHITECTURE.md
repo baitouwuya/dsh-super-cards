@@ -79,7 +79,7 @@ lib/tools.js    descriptions, prompt text, tool factories, config resolution
 lib/config.js   Schemastery Config (volatile fields -> the settings form) + placements
 lib/service.js  read-only Host superCards service
 lib/next-steps.js  turn-end auto generator: prompt, defensive JSON parse,
-                   one LLM call per turn, `super-cards/next-steps` event
+                   one LLM call per turn, `plugin:super-cards/next-steps` record
 ```
 
 Client: one function per block (`normalize<Type>Block` / `render<Type>Block`)
@@ -100,7 +100,16 @@ path mirrors `@deepseek-ai/dsh-session-title`: a `session/event` listener sees `
 Host reads that Turn's user question and final answer out of `session.snapshotEvents()`, resolves
 the route from `session.requestHeader()?.config` (or the paired `nextStepsProvider` /
 `nextStepsModel` override), makes one small `ctx.get('llm').stream()` request that must answer
-JSON, and appends `super-cards/next-steps`.
+JSON, and appends one `plugin:super-cards/next-steps` plugin record.
+
+The write is deliberately not `session.append(...)`. The Host validates a stored log on read: an
+event type outside `KNOWN_SESSION_EVENT_TYPES` that is not marked `ignorable` makes it refuse to
+interpret the *whole* log, while an ignorable one is retained and skipped. Only the Host's
+`appendPluginRecord` stamps that marker (and it requires the `plugin:` namespace), so the generator
+resolves it through a guarded dynamic import and keeps the bare import routeable by declaring the
+package as a peer dependency in `package.json`. A Host that exposes no writer is a no-op turn: no
+event, no model call. Reads accept the pre-0.16 type name as well, so logs already carrying it (with
+the marker repaired in place) still render.
 
 The event carries `data.turn`, which is exactly how the conversation location index resolves a
 payload coordinate — the event is appended *after* `turn/end`, so without that field it would

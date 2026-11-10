@@ -4065,12 +4065,17 @@ test('detectLook: long cards compress, dashboards flatten, short conclusions bre
 })
 
 // ---------------------------------------------------------------------------
-// Host-generated next-step card (session event `super-cards/next-steps`)
+// Host-generated next-step card (plugin record `plugin:super-cards/next-steps`)
 // ---------------------------------------------------------------------------
 
-/** Build one `super-cards/next-steps` event. */
+/** Build one current-shape next-step record. */
 function nextStepsEvent(seq, data) {
   return { type: client.__test.nextEvent, seq, data }
+}
+
+/** Build one legacy-shape next-step event, as written before 0.16. */
+function legacyNextStepsEvent(seq, data) {
+  return { type: client.__test.nextEventLegacy, seq, data }
 }
 
 test('next-step event: malformed payloads are ignored and counts are clamped', () => {
@@ -4120,6 +4125,23 @@ test('next-step event: malformed payloads are ignored and counts are clamped', (
   }))
   assert.equal(many.options.length, client.__test.caps.actions, 'one card holds at most one actions block')
   assert.deepEqual(many.options[0], { label: 'l0', prompt: 'p0' })
+})
+
+test('next-step event: both the current record and the legacy event render', () => {
+  const options = [{ label: 'Run tests', prompt: 'Run the repo test suite.' }]
+
+  // The generator now writes a `plugin:`-namespaced record, which is the only
+  // shape the Host can mark ignorable; logs written before 0.16 keep the old
+  // name, so the Client reads both.
+  assert.equal(client.__test.nextEvent, 'plugin:super-cards/next-steps')
+  assert.equal(client.__test.nextEventLegacy, 'super-cards/next-steps')
+
+  const current = client.__test.nextStepsEventData(nextStepsEvent(2, { turn: 1, text: 'Q', options }))
+  const legacy = client.__test.nextStepsEventData(legacyNextStepsEvent(3, { turn: 1, text: 'Q', options }))
+  assert.deepEqual(legacy, current, 'the legacy name parses to the same card')
+
+  // A record with an unrelated type still never matches.
+  assert.equal(client.__test.nextStepsEventData({ type: 'assistant/message', seq: 4, data: { turn: 1, options } }), null)
 })
 
 test('next-step definition: latest event wins per turn and keeps the framework location', () => {

@@ -62,7 +62,12 @@ Conversation 服务之前激活，行定义没有注册上。
 - 该回合是否已经生成过事件；读日志判断，重放不会重复追加。
 - 是否解析不到模型路由，或当前环境没有可用的 `llm` 服务。
 - 当前会话是否是子代理会话（`origin` 为 `subagent`、有 `parentSession` 或 `delegationDepth > 0`）。
-- 是否超时：调大 `nextStepsTimeoutMs` 后重试，并确认会话日志里有没有 `super-cards/next-steps` 事件。
+- 是否超时：调大 `nextStepsTimeoutMs` 后重试，并确认会话日志里有没有 `plugin:super-cards/next-steps` 记录。
+- 宿主是否提供 `appendPluginRecord`。没有这个写口就不写入任何事件，也不会花模型调用（见
+  [issue #1](https://github.com/baitouwuya/dsh-super-cards/issues/1)）。
+- 0.15 及更早版本开过 `nextSteps` 之后整个会话打不开，是另一回事：那时写出的事件没有 `ignorable`
+  标记，宿主会拒绝加载整个日志。修复办法与确切报错见
+  [issue #1](https://github.com/baitouwuya/dsh-super-cards/issues/1)；只升级插件修不好已经写坏的日志。
 - 手写 `tail` 卡与生成卡互斥；用户开始下一轮后上一回合的卡不再显示，这也是正常行为。
 
 ## html 卡片空白

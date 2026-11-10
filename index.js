@@ -9,9 +9,10 @@
  *   exact block shapes are deferred (progressive disclosure) to
  * - `render_ui_blocks`, which returns the exact shape, field notes, and example
  *   of one block type, or of every type.
- * - The `super-cards/next-steps` generator asks the conversation model for two
- *   to four next-step options after a turn ends and appends one session event
- *   that the Client renders as a turn-tail card (see `lib/next-steps.js`).
+ * - The `plugin:super-cards/next-steps` generator asks the conversation model for
+ *   two to four next-step options after a turn ends and appends one ignorable
+ *   plugin record that the Client renders as a turn-tail card (see
+ *   `lib/next-steps.js`).
  *
  * The row config is read from the patch (`config: {...}`): `blocks` narrows the
  * enabled types, `maxBlocks` the card cap, `dock` toggles dock boards,
@@ -69,9 +70,11 @@ import {
   NEXT_STEPS_CAPS,
   NEXT_STEPS_DEFAULTS,
   NEXT_STEPS_EVENT,
+  NEXT_STEPS_EVENT_LEGACY,
   NEXT_STEPS_LIMITS,
   NEXT_STEPS_SOURCE,
   collectTurnText,
+  isNextStepsEventType,
   hasNextStepsEvent,
   hasTailCard,
   install as installNextSteps,
@@ -96,9 +99,11 @@ export const inject = ['tools', 'systemPrompt']
  *
  * @param {object} ctx Cordis context with `tools`, `systemPrompt`, and `effect`.
  * @param {object} [config] patch row config (plain object; optional).
+ * @param {object} [env] install environment forwarded to the next-step generator
+ *   (test seam: timer overrides and the Host plugin-record writer).
  * @returns {void}
  */
-export function apply(ctx, config) {
+export function apply(ctx, config, env) {
   const options = resolveConfig(config)
   ctx.effect(() => ctx.tools.register(createRenderUiTool(options)), 'super-cards: render_ui tool')
   ctx.effect(() => ctx.tools.register(createBlocksTool(options)), 'super-cards: render_ui_blocks tool')
@@ -114,7 +119,7 @@ export function apply(ctx, config) {
   )
   // Automatic next steps are opt-in: install() subscribes to `session/event`
   // only when the row config enables it and returns a no-op disposer otherwise.
-  ctx.effect(() => installNextSteps(ctx, config), 'super-cards: next steps')
+  ctx.effect(() => installNextSteps(ctx, config, env), 'super-cards: next steps')
 }
 
 /**
@@ -191,6 +196,7 @@ export const __test = Object.freeze({
   createRenderUiTool,
   createBlocksTool,
   NEXT_STEPS_EVENT,
+  NEXT_STEPS_EVENT_LEGACY,
   NEXT_STEPS_SOURCE,
   NEXT_STEPS_LIMITS,
   NEXT_STEPS_DEFAULTS,
@@ -202,6 +208,7 @@ export const __test = Object.freeze({
   nextStepsEventData,
   parseNextSteps,
   collectTurnText,
+  isNextStepsEventType,
   hasTailCard,
   hasNextStepsEvent,
   installNextSteps,

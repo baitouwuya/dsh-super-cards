@@ -8478,7 +8478,9 @@ ${COLUMN_RATIO_CSS}
     /** Chat node kind for the host-generated next-step card. */
     const NEXT_KIND = 'super-cards-next'
     /** Session event type carrying the host-generated next-step card. */
-    const NEXT_EVENT = 'super-cards/next-steps'
+    const NEXT_EVENT = 'plugin:super-cards/next-steps'
+    /** Legacy type name of the same event, still present in logs written before 0.16. */
+    const NEXT_EVENT_LEGACY = 'super-cards/next-steps'
     /** Character cap for the optional next-step summary. */
     const NEXT_SUMMARY_LIMIT = 240
     /** Task status → progress bar value. */
@@ -9643,7 +9645,7 @@ ${COLUMN_RATIO_CSS}
     }
 
     // --- generated next-step card -----------------------------------------
-    // The Host appends one `super-cards/next-steps` event after `turn/end`:
+    // The Host appends one `plugin:super-cards/next-steps` record after `turn/end`
     // questions the user is most likely to ask next, generated from the
     // finished Turn. The card renders in the Turn tail only, so the row itself
     // stays empty and `selectTailCards` reads this node from the snapshot.
@@ -9657,7 +9659,9 @@ ${COLUMN_RATIO_CSS}
      *   `summary` is present only when the Host sent a non-empty one.
      */
     function nextStepsEventData(event) {
-      if (!event || event.type !== NEXT_EVENT || !event.data) return null
+      // Both spellings are read: the current `plugin:` record and the legacy
+      // event that 0.12–0.15 wrote (still in logs repaired in place).
+      if (!event || (event.type !== NEXT_EVENT && event.type !== NEXT_EVENT_LEGACY) || !event.data) return null
       const data = event.data
       if (typeof data.turn !== 'number' || !Number.isInteger(data.turn) || data.turn < 0) return null
       const source = Array.isArray(data.options) ? data.options : []
@@ -11394,6 +11398,7 @@ ${COLUMN_RATIO_CSS}
       nextSpec: nextStepsSpec,
       nextKind: NEXT_KIND,
       nextEvent: NEXT_EVENT,
+      nextEventLegacy: NEXT_EVENT_LEGACY,
       nextStepsEventData,
       mergeNextStepsEvent,
       configBundleCard: ConfigBundleCard,

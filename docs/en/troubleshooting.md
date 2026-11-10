@@ -53,7 +53,9 @@ Check the skip conditions one by one:
 - Whether the turn already generated the event; this reads the log, and replay does not append again.
 - Whether the model route cannot be resolved, or the current environment has no usable `llm` service.
 - Whether the current session is a subagent session (`origin` is `subagent`, a `parentSession` exists, or `delegationDepth > 0`).
-- Whether it timed out: raise `nextStepsTimeoutMs` and retry, and check whether the session log has a `super-cards/next-steps` event.
+- Whether it timed out: raise `nextStepsTimeoutMs` and retry, and check whether the session log has a `plugin:super-cards/next-steps` record.
+- Whether the Host exposes `appendPluginRecord`. Without it the generator writes nothing at all, so no event appears and no model call is made (see [issue #1](https://github.com/baitouwuya/dsh-super-cards/issues/1)).
+- A conversation that will not open after using `nextSteps` on 0.15 or earlier is a different failure: those releases wrote the event without the `ignorable` marker, so the Host refuses the log. Repair path and the exact symptom are in [issue #1](https://github.com/baitouwuya/dsh-super-cards/issues/1); upgrading alone cannot repair a log that already contains one.
 - A model-written `tail` card and a generated card are mutually exclusive; after the user starts the next turn the previous turn's card stops showing, and this is expected behavior.
 
 ## html card is blank

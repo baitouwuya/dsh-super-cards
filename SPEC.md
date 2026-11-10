@@ -198,12 +198,19 @@ Turn already logged a `render_ui` call with `"place":"tail"`, an event already e
 Turn, no route is resolvable (`session.requestHeader()?.config`, else the paired
 `nextStepsProvider`/`nextStepsModel`), or no `llm` service is present — then sends one small
 `ctx.get('llm').stream()` request (system prompt demands strict JSON, `maxTokens` capped) and
-appends `super-cards/next-steps` with `{ turn, summary?, text, options: [{label, prompt}], at }`
+appends one `plugin:super-cards/next-steps` plugin record with
+`{ turn, summary?, text, options: [{label, prompt}], at }`
 (`summary` is the one-or-two-sentence recap the card opens with, clamped to 240 characters). One
 in-flight generation per session; `turn/start`, the timeout, and plugin disposal abort it; the
 listener never throws and never appends twice for a Turn. Model output is parsed defensively
 (code fences stripped, prose tolerated, labels clamped to 40 and prompts to 400 characters, 1–4
-options, `null` when nothing usable). The event carries `data.turn` because it is appended after
+options, `null` when nothing usable). The write goes through the Host's `appendPluginRecord`, never
+`Session#append`: only that writer stamps `ignorable: true` on an event type outside
+`SessionEventMap`, and a Host meeting an unknown, non-ignorable type refuses to interpret the whole
+log. The generator resolves the writer lazily; a Host without the export writes nothing and spends
+no model call, because losing a card is survivable and losing a session log is not. Before 0.16 the
+event was written as `super-cards/next-steps` through `Session#append`, which such a Host refuses to
+load; both names are still read, so a repaired older log keeps rendering. The event carries `data.turn` because it is appended after
 `turn/end`: the location index reads that payload coordinate, which is what binds the card to its
 Turn. The Client matches it into the `super-cards-next` chat node (row renders nothing inline) and
 the Turn tail renders it as `{ look: 'relaxed', blocks: [text, actions] }` with the first option
