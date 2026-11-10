@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.15.0 — 2026-11-10
+
+### Changed
+
+- An `image` block is a figure that shows the picture whole at the card width, in its own aspect
+  ratio: nothing is cropped, nothing is letterboxed into a fixed frame, and no space is left empty
+  beside it. The old rule imposed the author's `height` and had two `fit` modes, and both lost
+  content — `cover` cut a 2666×4000 photo into a 4:1 strip, `contain` shrank a 9:19 screenshot into
+  a thumbnail with white on both sides. A tall screenshot now makes a tall figure, which is the
+  point: it stays readable, and the report card it came from is honest instead of tidy.
+- `height` and `fit` are retired. Older recorded specs still render: both normalizers drop the two
+  fields, the tool contract and the block docs no longer advertise them, and the card sizes the
+  picture from its own aspect ratio and the width it has. The Host's section balancing estimates a
+  figure at 320px instead of reading a height that no longer exists.
+- A figure's caption drops to the tertiary label at 11.5px and sits under the picture instead of
+  competing with the body text.
+
 ## 0.14.0 — 2026-11-06
 
 ### Changed
