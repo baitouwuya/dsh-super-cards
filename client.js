@@ -317,6 +317,8 @@ window.__ModuleLoader__.load({
       'team.members': '子代理',
       'team.tasks': '任务完成',
       'team.lastActivity': '最后活动',
+      'team.projectionFailure': '团队状态读取失败',
+      'team.doneTasks': '{count} 项任务已完成',
       'team.task.pending': '待开始',
       'team.task.in_progress': '进行中',
       'team.task.completed': '完成',
@@ -324,9 +326,11 @@ window.__ModuleLoader__.load({
       'team.task.cancelled': '已取消',
       'team.member.provisioning': '准备中',
       'team.member.active': '已加入',
+      'team.member.created': '已创建',
       'team.activity.task': '{id} {status}',
       'team.activity.member': '{name} {phase}',
       'team.activity.message': '{from} -> {to}: {excerpt}',
+      'team.activity.current': '当前会话',
       'team.activity.delivered': '已送达',
       'team.time.justNow': '刚刚',
       'team.time.seconds': '{count} 秒前',
@@ -434,6 +438,8 @@ window.__ModuleLoader__.load({
       'team.members': 'Subagents',
       'team.tasks': 'Tasks done',
       'team.lastActivity': 'Last activity',
+      'team.projectionFailure': 'Team state unavailable',
+      'team.doneTasks': '{count} tasks completed',
       'team.task.pending': 'Pending',
       'team.task.in_progress': 'In progress',
       'team.task.completed': 'Done',
@@ -441,9 +447,11 @@ window.__ModuleLoader__.load({
       'team.task.cancelled': 'Cancelled',
       'team.member.provisioning': 'provisioning',
       'team.member.active': 'joined',
+      'team.member.created': 'created',
       'team.activity.task': '{id} {status}',
       'team.activity.member': '{name} {phase}',
       'team.activity.message': '{from} -> {to}: {excerpt}',
+      'team.activity.current': 'current session',
       'team.activity.delivered': 'delivered',
       'team.time.justNow': 'just now',
       'team.time.seconds': '{count}s ago',
@@ -7823,12 +7831,13 @@ ${COLUMN_RATIO_CSS}
       const open = foldable ? manualOpen === true : true
       if (foldable) {
         const title = spec.title ? plainInline(spec.title) : t('status.success')
+        const doneMeta = props.completionMeta || t('card.doneMeta', { items: String(totalItems) })
         const toggle = () => setManualOpen((previous) => !(previous === true))
         return h(
           'section',
           {
             className: PREFIX + 'card ' + PREFIX + 'card--line',
-            'aria-label': title + ' · ' + t('card.doneMeta', { items: String(totalItems) }),
+            'aria-label': title + ' · ' + doneMeta,
             'data-dsh-super-cards': '1',
             'data-status': status,
           },
@@ -7842,7 +7851,7 @@ ${COLUMN_RATIO_CSS}
             },
             h('span', { className: PREFIX + 'line-icon', 'aria-hidden': 'true' }, iconGlyph('check')),
             h('span', { className: PREFIX + 'line-title' }, richChildren(title, 'lineTitle')),
-            h('span', { className: PREFIX + 'line-meta' }, t('card.doneMeta', { items: String(totalItems) })),
+            h('span', { className: PREFIX + 'line-meta' }, doneMeta),
             h('span', { className: PREFIX + 'line-chevron', 'aria-hidden': 'true' }, chevronGlyph(open)),
           ),
           open ? h('div', { className: PREFIX + 'blocks' }, children) : null,
@@ -9148,14 +9157,9 @@ ${COLUMN_RATIO_CSS}
     }
 
 // --- subagent progress card -------------------------------------------
-    // `team/member`, `team/task`, `team/message/queued` and
-    // `team/message/delivered` are durable session events: a card can be
-    // derived from them and replayed. One row per team; every event updates the
-    // same context, so the card follows provisioning, task progress, messages
-    // between subagents, and completion without a single model call. While the
-    // run is live the row refreshes its relative times with one local interval
-    // — the documented exception to the plugin's "cards are inert" rule: time
-    // text only, no network, no storage, and the interval is always cleared.
+    // Durable team and subagent events anchor one card in the conversation.
+    // Current member and task facts come from the Host's session projections.
+    // The running row refreshes its relative times with one local interval.
 
     /** Task status → locale key of its human label. */
     const TEAM_STATUS_KEYS = {
@@ -9242,7 +9246,7 @@ ${COLUMN_RATIO_CSS}
       if (entry.kind === 'message') {
         return translate('team.activity.message', {
           from: entry.senderName,
-          to: entry.targetId,
+          to: entry.currentRecipient ? translate('team.activity.current') : entry.targetId,
           excerpt: entry.excerpt,
         })
       }
@@ -9302,6 +9306,19 @@ ${COLUMN_RATIO_CSS}
       if (!event || !event.data) return null
       const teamId = typeof event.data.teamId === 'string' ? event.data.teamId : ''
       const time = typeof event.time === 'number' && Number.isFinite(event.time) ? event.time : null
+      if (event.type === 'subagent/catalog') {
+        const childId = event.data.childId
+        if (typeof childId !== 'string' || childId === '') return null
+        return {
+          type: 'catalog', teamId, time,
+          member: { id: childId, name: event.data.name || childId, description: event.data.label || '', phase: 'created' },
+        }
+      }
+      if (event.type === 'user/message' && event.data.source?.kind === 'agent-message') {
+        const senderId = event.data.source.senderSessionId
+        if (typeof senderId !== 'string' || senderId === '' || !Array.isArray(event.data.content)) return null
+        return { type: 'agent-message', teamId, time, message: { senderId, content: event.data.content.slice(1) } }
+      }
       if (event.type === 'team/member') {
         const member = event.data.member
         if (!member || typeof member.id !== 'string' || member.id === '') return null
@@ -9341,7 +9358,7 @@ ${COLUMN_RATIO_CSS}
         tasks: state && Array.isArray(state.tasks) ? state.tasks.slice() : [],
         trail: state && Array.isArray(state.trail) ? state.trail.slice() : [],
       }
-      if (parsed.type === 'member') {
+      if (parsed.type === 'member' || parsed.type === 'catalog') {
         const phase = typeof parsed.member.phase === 'string' ? parsed.member.phase : 'active'
         const member = {
           id: parsed.member.id,
@@ -9362,6 +9379,11 @@ ${COLUMN_RATIO_CSS}
         return next
       }
       if (parsed.type === 'task') {
+        if (parsed.task.status === 'deleted') {
+          next.tasks = next.tasks.filter((task) => task.id !== parsed.task.id)
+          next.trail = next.trail.filter((entry) => entry.kind !== 'task' || entry.taskId !== parsed.task.id)
+          return next
+        }
         const task = {
           id: parsed.task.id,
           subject: typeof parsed.task.subject === 'string' ? parsed.task.subject : parsed.task.id,
@@ -9377,6 +9399,17 @@ ${COLUMN_RATIO_CSS}
         if (index === -1) next.tasks.push(task)
         else next.tasks[index] = Object.assign({}, next.tasks[index], task)
         next.trail = pushTeamActivity(next.trail, activity)
+        return next
+      }
+      if (parsed.type === 'agent-message') {
+        const message = parsed.message
+        next.trail = pushTeamActivity(next.trail, teamActivityEntry('message', parsed.time, {
+          senderId: message.senderId,
+          senderName: message.senderId,
+          currentRecipient: true,
+          excerpt: teamMessageExcerpt(message),
+          delivered: true,
+        }))
         return next
       }
       if (parsed.type === 'message-queued') {
@@ -9409,7 +9442,7 @@ ${COLUMN_RATIO_CSS}
      * other state is still running.
      *
      * @param {Array<{ id: string, status: string }>} tasks - merged tasks.
-     * @returns {'running' | 'success' | 'error' | 'warn'} card status.
+     * @returns {'running' | 'success' | 'error' | 'warn' | 'none'} card status.
      */
     function deriveTeamStatus(tasks, members) {
       const list = Array.isArray(tasks) ? tasks : []
@@ -9418,7 +9451,10 @@ ${COLUMN_RATIO_CSS}
         const active = (Array.isArray(members) ? members : []).some(
           (member) => member.phase === 'provisioning' || member.phase === 'active',
         )
-        return active ? 'running' : 'success'
+        if (active) return 'running'
+        return (Array.isArray(members) ? members : []).some((member) => member.phase === 'unknown' || member.phase === 'created')
+          ? 'none'
+          : 'success'
       }
       const completed = list.filter((task) => task.status === 'completed').length
       if (completed === list.length) return 'success'
@@ -9434,11 +9470,11 @@ ${COLUMN_RATIO_CSS}
      * it is derived from the tasks and member phases.
      *
      * @param {any} data - `{ status, tasks, members }`.
-     * @returns {'running' | 'success' | 'warn' | 'error'} card status.
+     * @returns {'running' | 'success' | 'warn' | 'error' | 'none'} card status.
      */
     function teamCardStatus(data) {
       const explicit = data && data.status
-      if (explicit === 'running' || explicit === 'success' || explicit === 'warn' || explicit === 'error') {
+      if (explicit === 'running' || explicit === 'success' || explicit === 'warn' || explicit === 'error' || explicit === 'none') {
         return explicit
       }
       return deriveTeamStatus(data ? data.tasks : undefined, data ? data.members : undefined)
@@ -9535,7 +9571,8 @@ ${COLUMN_RATIO_CSS}
     function teamSpec(data, t, now) {
       const members = data && Array.isArray(data.members) ? data.members : []
       const tasks = data && Array.isArray(data.tasks) ? data.tasks : []
-      if (members.length === 0 && tasks.length === 0) return null
+      const failure = data && typeof data.failure === 'string' ? data.failure : ''
+      if (members.length === 0 && tasks.length === 0 && failure === '') return null
       const timestamp = typeof now === 'number' && Number.isFinite(now) ? now : Date.now()
       const completed = tasks.filter((task) => task.status === 'completed').length
       const stats = [
@@ -9545,6 +9582,7 @@ ${COLUMN_RATIO_CSS}
       const last = teamLastActivityTime(data)
       if (last !== null) stats.push({ label: t('team.lastActivity'), value: relativeTime(timestamp, last, t) })
       const blocks = [{ type: 'stats', items: stats }]
+      if (failure !== '') blocks.push({ type: 'callout', tone: 'error', title: t('team.projectionFailure'), text: failure })
       if (tasks.length > 0) {
         const items = tasks.slice(0, TEAM_PROGRESS_LIMIT).map((task) => {
           const subject = typeof task.subject === 'string' && task.subject !== '' ? task.subject : task.id
@@ -9563,6 +9601,54 @@ ${COLUMN_RATIO_CSS}
       return { title: t('team.title'), status: teamCardStatus(data), blocks }
     }
 
+    /** Combine recorded activity with the Host's current team and descendant projections. */
+    function projectTeamState(data, rootId, sessions, statuses, team, rootCatalog) {
+      const source = data || { members: [], tasks: [], trail: [] }
+      const members = new Map((source.members || []).map((member) => [member.id, member]))
+      const projections = sessions.projectionsBySession
+      const summaries = sessions.byId
+      const visited = new Set([rootId])
+      const toLoad = []
+      let failure = team?.failure || ''
+
+      function visit(parentId) {
+        const snapshot = projections[parentId]
+        if (snapshot?.state === 'error') failure ||= snapshot.error?.message || String(snapshot.error)
+        else if ((!snapshot || snapshot.state === 'idle') && summaries[parentId]?.formatStatus !== 'migration-required'
+          && !(parentId === rootId && Array.isArray(rootCatalog))) toLoad.push(parentId)
+        const entries = parentId === rootId && Array.isArray(rootCatalog)
+          ? rootCatalog
+          : snapshot?.values?.subagentCatalog
+        if (!Array.isArray(entries)) return
+        for (const entry of entries) {
+          if (visited.has(entry.id)) continue
+          visited.add(entry.id)
+          const summary = summaries[entry.id]
+          const child = projections[entry.id]
+          const running = statuses.get(entry.id)?.running ?? summary?.running
+          const timing = child?.values?.subagentTiming ?? summary?.projectionValues?.subagentTiming
+          const phase = running === true ? 'active' : timing?.lastTurnCompleted === true ? 'done' : 'unknown'
+          members.set(entry.id, {
+            id: entry.id, name: entry.name || entry.id, description: entry.label || '', phase,
+          })
+          if (entry.mode !== 'external') visit(entry.id)
+        }
+      }
+      if (typeof rootId === 'string' && rootId !== '') visit(rootId)
+
+      const previousTasks = new Map((source.tasks || []).map((task) => [task.id, task]))
+      const tasks = team
+        ? team.tasks.filter((task) => task.status !== 'deleted').map((task) => ({ ...task, time: previousTasks.get(task.id)?.time }))
+        : (source.tasks || [])
+      const trail = (source.trail || []).map((entry) => {
+        const sender = entry.senderId && members.get(entry.senderId)
+        return sender ? { ...entry, senderName: sender.name } : entry
+      })
+      const result = { ...source, members: [...members.values()], tasks, trail, failure }
+      result.status = failure ? 'error' : deriveTeamStatus(tasks, result.members)
+      return { data: result, toLoad }
+    }
+
     /** Business Definition for the automatic subagent progress card. */
     const teamCardDefinition = {
       kind: TEAM_KIND,
@@ -9570,7 +9656,7 @@ ${COLUMN_RATIO_CSS}
       match: (event) => {
         const parsed = teamEventData(event)
         if (parsed === null) return null
-        return { id: 'team-' + (parsed.teamId === '' ? 'local' : parsed.teamId), role: 'start' }
+        return { id: 'team', role: 'start' }
       },
       start: (_context, match) => mergeTeamEvent(null, match.event),
       update: (context, match) => mergeTeamEvent(context.state, match.event),
@@ -9616,7 +9702,24 @@ ${COLUMN_RATIO_CSS}
     function TeamCardRow(props) {
       const t = resolveT(props)
       const node = props ? props.node : undefined
-      const data = node ? node.data : undefined
+      const source = node ? node.data : undefined
+      const sessions = props.useSessions((state) => state)
+      const statuses = props.useSessionStatus((state) => state)
+      const team = props.useProjection('agentTeam')
+      const rootCatalog = props.useProjection('subagentCatalog')
+      const projected = React.useMemo(
+        () => projectTeamState(source, props.sessionId, sessions, statuses, team, rootCatalog),
+        [source, props.sessionId, sessions, statuses, team, rootCatalog],
+      )
+      const data = projected.data
+      const pending = projected.toLoad.join('\n')
+      React.useEffect(() => {
+        for (const sessionId of projected.toLoad) {
+          props.refreshTeamProjections(sessionId).catch((error) => {
+            console.error('[' + NS + '] subagent projection failed:', error)
+          })
+        }
+      }, [props.refreshTeamProjections, pending])
       const ticker = teamTicker(data)
       const [clock, setClock] = React.useState(Date.now())
       const now = typeof clock === 'number' && Number.isFinite(clock) ? clock : Date.now()
@@ -9638,6 +9741,7 @@ ${COLUMN_RATIO_CSS}
           phase: 'start',
           block: { argsRaw: JSON.stringify(spec) },
           t,
+          completionMeta: data.tasks.length > 0 ? t('team.doneTasks', { count: String(data.tasks.length) }) : t('status.success'),
           inputActions: props ? props.inputActions : undefined,
           bindings: BINDINGS,
         }),
@@ -11092,9 +11196,12 @@ ${COLUMN_RATIO_CSS}
       }
       if (!conversation || !conversation.events || typeof conversation.events.register !== 'function') return
       if (!slotService || typeof slotService.inject !== 'function') return
+      const refreshTeamProjections = (sessionId) => scope.get('sessions').refreshProjections(sessionId)
       const registerNode = (key, component) => {
         try {
-          return slotService.register({ name: 'conversation.chat.node', key, locale: NS }, component)
+          const options = { name: 'conversation.chat.node', key, locale: NS }
+          if (key === TEAM_KIND) options.inject = () => ({ refreshTeamProjections })
+          return slotService.register(options, component)
         } catch (error) {
           warnOnce('node', '[' + NS + '] ' + NODE_SLOT + ' not installed: ' + describeError(error))
           return () => {}
@@ -11121,7 +11228,7 @@ ${COLUMN_RATIO_CSS}
     }
 
     /** Services this Client half needs. */
-    const inject = ['slots', 'locale', 'uiConversation']
+    const inject = ['slots', 'locale', 'uiConversation', 'sessions']
 
     /**
      * Register the locale dictionaries, the stylesheet, and the keyed Tool row.
@@ -11170,13 +11277,11 @@ ${COLUMN_RATIO_CSS}
       // and is interleaved with the answer text.
       //
       // The Conversation service can activate after this plugin on a cold page
-      // load. Reading it once here is how a restarted page lost every historical
-      // card (the row definition was never installed, so replay had no renderer)
-      // while a warm page kept working. `ctx.inject` waits for the service and
-      // re-runs registration if it is ever replaced.
+      // load. `ctx.inject` waits for Conversation and Sessions and re-runs
+      // registration when either service is replaced.
       if (ctx && typeof ctx.inject === 'function') {
         try {
-          ctx.inject(['uiConversation'], (scope) => registerInlineSurface(scope || ctx))
+          ctx.inject(['uiConversation', 'sessions'], (scope) => registerInlineSurface(scope || ctx))
         } catch (error) {
           warnOnce('conversation', '[' + NS + '] uiConversation injection failed: ' + describeError(error))
           registerInlineSurface(ctx)
@@ -11375,6 +11480,7 @@ ${COLUMN_RATIO_CSS}
       teamKind: TEAM_KIND,
       teamEventData,
       mergeTeamEvent,
+      projectTeamState,
       deriveTeamStatus,
       relativeTime,
       teamStatusLabel,

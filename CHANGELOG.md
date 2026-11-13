@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Adapted the automatic subagent progress card to DSH 0.2.2-rc.2: it reads the current team and
+  nested subagent projections, follows session status, excludes deleted tasks, and includes agent
+  messages received by the current session. Projection failures are visible, and the folded
+  summary counts tasks rather than statistics and activity entries.
 - Generated next-step cards no longer disable branching from a completed Turn's final assistant
   message. Their hidden nodes stay out of the Host's Turn index while the cards remain in the tail.
 

@@ -167,12 +167,17 @@ and degrades to a muted line when that service is absent.
 
 ### Live team card (Client)
 
-The subagent progress card matches all four team events (`team/member`, `team/task`,
-`team/message/queued`, `team/message/delivered`), keeps a bounded six-entry activity trail, and
-renders relative times ("12 秒前") that refresh through exactly one `setInterval` inside the row —
-started only while the card is still running, cleared by the effect cleanup, and stopped once the
-completed run folds to its one-line summary. That single timer is the plugin's only deliberate
-exception to the "cards are inert" rule: time text only, no network, no storage.
+The subagent progress card anchors one row per session on durable `subagent/catalog`, team, and
+received `agent-message` events. It combines their bounded six-entry activity trail with the
+Host's current `agentTeam` task board, `subagentCatalog` hierarchy, and session status. Local child
+projections are loaded through the Host session service as needed; read failures are shown on the
+card. Messages are limited to historical team mailbox events and agent messages received by this
+session. Deleted tasks are excluded. The completed line reports task count rather than counting
+stats and activity as completed work.
+
+Relative times ("12 秒前") refresh through one `setInterval` inside the row, started only while
+the card is running and cleared by effect cleanup. The card reads Host projections and makes no
+model call or plugin storage writes.
 
 ### Auto-conversion (Client)
 
@@ -181,10 +186,8 @@ fences so nothing is shown twice. A diagram card carries a source toggle: it ren
 by default and switches to a `<pre>` built from `block.source` (auto-converted cards keep the
 exact fence) or a deterministic mermaid reconstruction (`diagramToMermaid`).
 
-Team activity is another automatic card: the `super-cards-team` row matches durable
-`team/member` and `team/task` events, merges them by id, derives running/success/warn/error,
-and reuses the same card renderer and completion folding — so a subagent's work shows up as a
-progress card without a model call and finishes itself when the task board is done.
+Team activity is another automatic card: the `super-cards-team` row combines durable activity
+with current Host projections and reuses the same card renderer and completion folding.
 
 Auto-conversion remains as a fallback: the `super-cards-auto` Chat row matches
 `assistant/message`, extracts mermaid/`mmd` fences, parses the subset it supports, and reuses

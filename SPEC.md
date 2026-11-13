@@ -402,15 +402,20 @@ mirrors the same numbers and the parity test fails when either half drifts.
 ## Client half (`client.js`) — owned by client-dev
 
 **Team progress card.** A third Chat row (`kind: 'super-cards-team'`, target `chat`)
-matches durable `team/member` and `team/task` events (function-form match, keyed by `teamId`),
-merges members/tasks by id, and anchors one card at the first matching event with
-`groupTree: 'turn'`. Derived status: all tasks `completed` → `success`; a `failed`/`cancelled`
-task with no `in_progress` → `warn` (single) or `error` (several); otherwise `running`; with no
-tasks, `running` while any member phase is `provisioning`/`active`, else `success`. The renderer
-reuses `RenderUiCard` with `stats` (subagents, tasks done/total) and a `progress` row per task
-(completed 1, in_progress 0.5, pending/failed 0, at most 12 rows). Completion folding is the
-existing behaviour, so a finished team card rests as one checked line. No model call is
-involved and replay rebuilds the same card from the log.
+matches `subagent/catalog`, `team/member`, `team/task`, historical team mailbox events, and
+`user/message` events attributed to `agent-message`. It anchors one card at the first matching
+event with `groupTree: 'turn'`, retaining the newest six activity entries. The Host's `agentTeam`
+projection supplies the current non-deleted tasks; `subagentCatalog` projections supply members,
+including nested local children, and session status/timing supplies their lifecycle. Missing local
+child projections are requested through the Host session service; a projection failure is visible.
+Only messages received in the current session and historical mailbox events are available.
+
+Derived status: all tasks `completed` → `success`; a `failed`/`cancelled` task with no
+`in_progress` → `warn` (single) or `error` (several); otherwise `running`. With no tasks, an
+active member means `running`, an unknown completion means neutral, and other states mean
+`success`. The renderer reuses `RenderUiCard` with `stats` (subagents, tasks done/total) and a
+`progress` row per task (completed 1, in_progress 0.5, pending/failed 0, at most 12 rows). A
+finished team card folds to a checked line showing the task count. No model call is involved.
 
 **Diagram sizing.** All geometry is computed from the block (no DOM measurement), and it is
 kept dense on purpose: 28px node boxes, 26px participant headers, 16px compartment lines,

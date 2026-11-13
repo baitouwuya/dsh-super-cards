@@ -225,7 +225,7 @@ test('module registers with the exact package id', () => {
 
 test('exports apply, inject, and test helpers', () => {
   assert.equal(typeof client.apply, 'function')
-  assert.deepEqual(Array.from(client.inject), ['slots', 'locale', 'uiConversation'])
+  assert.deepEqual(Array.from(client.inject), ['slots', 'locale', 'uiConversation', 'sessions'])
   assert.equal(typeof client.__test.extractSpec, 'function')
   assert.equal(typeof client.__test.normalizeSpec, 'function')
   assert.equal(key, 'render_ui')
@@ -239,6 +239,8 @@ function createFakeContext() {
   const injections = []
   const registrations = []
   const dictionaries = []
+  const projectionReads = []
+  const sessions = { refreshProjections: async (id) => { projectionReads.push(id) } }
 
   const locale = {
     register(namespace, dicts) {
@@ -284,6 +286,7 @@ function createFakeContext() {
       if (name === 'slots') return slots
       if (name === 'locale') return locale
       if (name === 'uiConversation') return conversation
+      if (name === 'sessions') return sessions
       return undefined
     },
     provide(name, value) {
@@ -302,7 +305,7 @@ function createFakeContext() {
     },
   }
 
-  return { ctx, effects, injections, registrations, dictionaries, definitions, provided }
+  return { ctx, effects, injections, registrations, dictionaries, definitions, provided, projectionReads }
 }
 
 test('before the inline row exists the tool row carries the whole card', () => {
@@ -311,7 +314,7 @@ test('before the inline row exists the tool row carries the whole card', () => {
   assert.equal(tree.children[0].type, card)
 })
 
-test('apply waits for uiConversation instead of reading it once', () => {
+test('apply waits for conversation and sessions services', () => {
   // A cold page load can activate the Conversation package after this plugin.
   // The inline surface must register when the service appears, or replay has no
   // row definition and every historical card disappears.
@@ -353,8 +356,8 @@ test('apply waits for uiConversation instead of reading it once', () => {
   }
 
   client.apply(ctx)
-  assert.ok(pending, 'apply must wait for uiConversation, not read it once')
-  assert.deepEqual(pending.deps, ['uiConversation'])
+  assert.ok(pending, 'apply must wait for the services')
+  assert.deepEqual(pending.deps, ['uiConversation', 'sessions'])
   assert.equal(definitions.length, 0, 'nothing row-shaped before the service appears')
 
   pending.callback(ctx)
@@ -410,6 +413,8 @@ test('apply installs the inline Chat row and its process marker', () => {
   assert.equal(teamRow.definition.key, 'super-cards-team')
   assert.equal(teamRow.definition.locale, 'superCards')
   assert.equal(typeof teamRow.component, 'function')
+  teamRow.definition.inject().refreshTeamProjections('child')
+  assert.deepEqual(harness.projectionReads, ['child'])
 
   assert.equal(nextRow.definition.name, 'conversation.chat.node')
   assert.equal(nextRow.definition.key, 'super-cards-next')
@@ -2627,6 +2632,10 @@ function teamDeliveredEvent(seq, teamId, messageId, time) {
   return event
 }
 
+function subagentCatalogEvent(seq, childId, name, time = 1700000000000) {
+  return { type: 'subagent/catalog', seq, time, data: { version: 3, childId, name, mode: 'continuable', label: name, childCreatedAt: time } }
+}
+
 /** Fold a list of team events through the definition into one state. */
 function mergeTeamEvents(events) {
   const definition = client.__test.teamDefinition
@@ -2655,19 +2664,161 @@ function enT(token, vars) {
   ))
 }
 
-test('team definition matches member and task events only', () => {
+function teamRowWithHost(props) {
+  const sessions = { byId: {}, projectionsBySession: { root: { state: 'ready', values: {} } } }
+  return client.__test.teamRow({
+    sessionId: 'root',
+    useSessions: (select) => select(sessions),
+    useSessionStatus: (select) => select(new Map()),
+    useProjection: () => undefined,
+    refreshTeamProjections: async () => {},
+    ...props,
+  })
+}
+
+test('team definition matches member and task events', () => {
   const definition = client.__test.teamDefinition
   assert.equal(definition.match({ type: 'assistant/message', seq: 1, data: {} }), null)
   assert.equal(definition.match({ type: 'team/member', seq: 2, data: { member: {} } }), null)
   assert.equal(definition.match({ type: 'team/task', seq: 3, data: { task: {} } }), null)
   assert.deepEqual(
     definition.match(teamMemberEvent(4, 'team-1', { id: 'm1', name: 'host', phase: 'provisioning' })),
-    { id: 'team-team-1', role: 'start' },
+    { id: 'team', role: 'start' },
   )
   assert.deepEqual(
     definition.match(teamTaskEvent(5, 'team-1', { id: 'task-1', status: 'pending' })),
-    { id: 'team-team-1', role: 'start' },
+    { id: 'team', role: 'start' },
   )
+})
+
+test('team definition groups current catalog, tasks, and received agent messages into one card', () => {
+  const definition = client.__test.teamDefinition
+  const catalog = subagentCatalogEvent(1, 'worker', 'reviewer')
+  const task = teamTaskEvent(2, 'root', { id: 'task-1', subject: 'Review', status: 'in_progress' })
+  const message = {
+    type: 'user/message', seq: 3, time: 1700000001000,
+    data: {
+      id: 'message-1', source: { kind: 'agent-message', form: 'relay', senderSessionId: 'worker' },
+      content: [{ type: 'text', text: 'Agent reviewer sent a message: ' }, { type: 'text', text: 'Review finished.' }],
+    },
+  }
+  assert.deepEqual(definition.match(catalog), definition.match(task))
+  assert.deepEqual(definition.match(message), definition.match(task))
+  assert.equal(definition.match({ type: 'user/message', data: { source: { kind: 'user' }, content: [] } }), null)
+
+  const state = mergeTeamEvents([catalog, task, message])
+  assert.deepEqual(state.members.map((member) => member.id), ['worker'])
+  assert.equal(state.trail[0].senderId, 'worker')
+  assert.equal(state.trail[0].excerpt, 'Review finished.')
+})
+
+test('team card removes deleted tasks from progress and activity', () => {
+  const events = [
+    teamTaskEvent(1, 'root', { id: 'task-1', subject: 'Review', status: 'in_progress' }, 1000),
+    teamTaskEvent(2, 'root', { id: 'task-2', subject: 'Build', status: 'completed' }, 2000),
+    teamTaskEvent(3, 'root', { id: 'task-1', subject: 'Review', status: 'deleted' }, 3000),
+  ]
+  const state = mergeTeamEvents(events)
+  assert.deepEqual(state.tasks.map((task) => task.id), ['task-2'])
+  assert.equal(state.trail.some((entry) => entry.taskId === 'task-1'), false)
+  const spec = client.__test.teamSpec(state, zhT, 3000)
+  assert.equal(spec.status, 'success')
+  assert.equal(spec.blocks[0].items[1].value, '1/1')
+})
+
+test('team card uses host projections for nested members, live status, and the current task board', () => {
+  const data = {
+    members: [{ id: 'child', name: 'historical', phase: 'active' }],
+    tasks: [{ id: 'deleted', subject: 'Stale', status: 'in_progress', time: 1000 }],
+    trail: [{ kind: 'message', time: 2000, senderId: 'grandchild', senderName: 'grandchild', currentRecipient: true, excerpt: 'Ready' }],
+  }
+  const sessions = {
+    byId: { child: { running: false }, grandchild: { running: true }, pending: { running: false } },
+    projectionsBySession: {
+      root: { state: 'ready', values: { subagentCatalog: [
+        { id: 'child', name: 'reviewer', label: 'Review', mode: 'continuable' },
+        { id: 'pending', name: 'writer', label: 'Write', mode: 'continuable' },
+      ] } },
+      child: { state: 'ready', values: { subagentCatalog: [
+        { id: 'grandchild', name: 'checker', label: 'Check', mode: 'continuable' },
+      ], subagentTiming: { lastTurnCompleted: true } } },
+      grandchild: { state: 'ready', values: { subagentCatalog: [] } },
+    },
+  }
+  const statuses = new Map([['grandchild', { running: true }]])
+  const projection = { enabled: true, tasks: [
+    { id: 'task-2', subject: 'Build', status: 'completed' },
+    { id: 'deleted', subject: 'Stale', status: 'deleted' },
+  ] }
+  const result = client.__test.projectTeamState(data, 'root', sessions, statuses, projection)
+  assert.deepEqual(result.data.members.map((member) => member.id), ['child', 'grandchild', 'pending'])
+  assert.equal(result.data.members.find((member) => member.id === 'child').name, 'reviewer')
+  assert.equal(result.data.members.find((member) => member.id === 'grandchild').phase, 'active')
+  assert.deepEqual(result.data.tasks.map((task) => task.id), ['task-2'])
+  assert.deepEqual(result.toLoad, ['pending'])
+  assert.equal(result.data.trail[0].senderName, 'checker')
+  assert.match(client.__test.teamSpec(result.data, zhT, 3000).blocks.at(-1).items[0], /checker/)
+})
+
+test('team card follows member lifecycle without treating unknown completion as success', () => {
+  const data = { members: [], tasks: [], trail: [] }
+  const sessions = {
+    byId: { child: { running: false } },
+    projectionsBySession: {
+      root: { state: 'ready', values: { subagentCatalog: [{ id: 'child', mode: 'continuable', name: 'worker' }] } },
+      child: { state: 'ready', values: { subagentCatalog: [] } },
+    },
+  }
+  const project = (statuses) => client.__test.projectTeamState(data, 'root', sessions, statuses).data
+  assert.equal(project(new Map()).status, 'none')
+  assert.equal(project(new Map([['child', { running: true }]])).status, 'running')
+  sessions.projectionsBySession.child.values.subagentTiming = { lastTurnCompleted: true }
+  assert.equal(project(new Map()).status, 'success')
+})
+
+test('team row loads missing local child projections and exposes projection errors', () => {
+  const effects = []
+  const reads = []
+  const original = reactStub.useEffect
+  reactStub.useEffect = (effect) => { effects.push(effect) }
+  try {
+    const sessions = {
+      byId: {},
+      projectionsBySession: { root: { state: 'ready', values: { subagentCatalog: [
+        { id: 'child', name: 'worker', mode: 'continuable' },
+        { id: 'external', name: 'remote', mode: 'external' },
+        { id: 'failed', name: 'broken', mode: 'continuable' },
+      ] } }, failed: { state: 'error', error: { message: 'projection unavailable' }, values: {} } },
+    }
+    const row = teamRowWithHost({
+      node: { data: { members: [], tasks: [], trail: [] } }, t: zhT,
+      useSessions: (select) => select(sessions),
+      refreshTeamProjections: async (id) => { reads.push(id) },
+    })
+    assert.equal(row.props['data-team-tick'], '0')
+    effects[0]()
+    assert.deepEqual(reads, ['child'])
+    const card = mount(row.children[0])
+    assert.ok(textOf(card).includes('projection unavailable'))
+  } finally {
+    reactStub.useEffect = original
+  }
+})
+
+test('team card refreshes cached catalogs and reports errors even when cached entries exist', () => {
+  const sessions = {
+    byId: {},
+    projectionsBySession: {
+      root: { state: 'ready', values: { subagentCatalog: [{ id: 'cached', mode: 'continuable' }] } },
+      cached: { state: 'idle', values: { subagentCatalog: [{ id: 'failed', mode: 'continuable' }] } },
+      failed: { state: 'error', error: { message: 'read failed' }, values: { subagentCatalog: [] } },
+    },
+  }
+  const result = client.__test.projectTeamState({ members: [], tasks: [], trail: [] }, 'root', sessions, new Map())
+  assert.deepEqual(result.toLoad, ['cached'])
+  assert.equal(result.data.failure, 'read failed')
+  assert.equal(result.data.status, 'error')
+  assert.deepEqual(result.data.members.map((member) => member.id), ['cached', 'failed'])
 })
 
 test('team card: members alone are running; progress follows the tasks', () => {
@@ -2768,7 +2919,7 @@ test('team card renders stats and progress, and folds when every task completes'
       { id: 't2', subject: 'Client half', status: 'pending' },
     ],
   }
-  const row = client.__test.teamRow({ node: { data }, t: (token) => token })
+  const row = teamRowWithHost({ node: { data }, t: (token) => token })
   const card = mount(row.children[0])
   assert.ok(findOne(card, (node) => hasClass(node, 'dsh-sc-stats')))
   assert.ok(findOne(card, (node) => hasClass(node, 'dsh-sc-progress')))
@@ -2781,13 +2932,15 @@ test('team card renders stats and progress, and folds when every task completes'
       { id: 't2', subject: 'Client half', status: 'completed' },
     ],
   }
-  const doneCard = mount(client.__test.teamRow({ node: { data: doneData }, t: (token) => token }).children[0])
+  const doneCard = mount(teamRowWithHost({ node: { data: doneData }, t: zhT }).children[0])
   assert.equal(hasClass(doneCard, 'dsh-sc-card--line'), true, 'a finished run folds into one checked line')
   assert.ok(findOne(doneCard, (node) => hasClass(node, 'dsh-sc-line-head')))
+  assert.match(textOf(doneCard), /2 项任务已完成/)
+  assert.match(doneCard.props['aria-label'], /2 项任务已完成/)
 
   // Nothing to show yet: the row renders nothing at all.
-  assert.equal(client.__test.teamRow({ node: { data: { members: [], tasks: [] } }, t: (token) => token }), null)
-  assert.equal(client.__test.teamRow({ t: (token) => token }), null)
+  assert.equal(teamRowWithHost({ node: { data: { members: [], tasks: [] } }, t: (token) => token }), null)
+  assert.equal(teamRowWithHost({ t: (token) => token }), null)
 })
 
 test('team card keeps long task subjects whole and caps the progress rows', () => {
@@ -2845,11 +2998,11 @@ test('team definition matches all four team events and rejects malformed payload
     targetId: 'web-builder',
     content: [{ type: 'text', text: 'hello' }],
   }, 1700000001000)
-  assert.deepEqual(definition.match(queued), { id: 'team-team-1', role: 'start' })
+  assert.deepEqual(definition.match(queued), { id: 'team', role: 'start' })
   assert.equal(parse(queued).type, 'message-queued')
   assert.equal(parse(queued).time, 1700000001000)
   const delivered = teamDeliveredEvent(21, 'team-1', 'msg-1', 1700000002000)
-  assert.deepEqual(definition.match(delivered), { id: 'team-team-1', role: 'start' })
+  assert.deepEqual(definition.match(delivered), { id: 'team', role: 'start' })
   assert.equal(parse(delivered).type, 'message-delivered')
   assert.equal(parse(delivered).messageId, 'msg-1')
   // An event without a member/task/message id, or without a messageId.
@@ -2970,7 +3123,8 @@ test('team card: mixed run shows stats, progress bars, and the newest three acti
 })
 
 test('team row ticks only while the run is running and always clears the interval', () => {
-  const { teamRow, teamTicker, shouldTickTeamCard } = client.__test
+  const { teamTicker, shouldTickTeamCard } = client.__test
+  const teamRow = teamRowWithHost
   const now = 1700000400000
   const running = {
     members: [{ id: 'm1', name: 'lead', phase: 'active' }],
