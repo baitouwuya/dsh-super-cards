@@ -9748,8 +9748,8 @@ ${COLUMN_RATIO_CSS}
 
     /**
      * Business Definition for the host-generated next-step card. The event is
-     * appended after `turn/end`; the Conversation location index resolves its
-     * Turn from the payload's `turn`, so `start.location` is kept as-is.
+     * appended after `turn/end`. Keep the node out of the Host's Turn index so
+     * it does not make the final assistant message unavailable for branching.
      */
     const nextStepsDefinition = {
       kind: NEXT_KIND,
@@ -9765,15 +9765,13 @@ ${COLUMN_RATIO_CSS}
       buildViewNode: (context) => {
         const state = context.state
         if (!state || !Array.isArray(state.options) || state.options.length === 0) return null
-        const start = context.start
-        const location = start && start.location ? start.location : { kind: 'unresolved' }
         return {
           key: context.key,
           kind: NEXT_KIND,
           id: context.id,
           target: 'chat',
           anchorSeq: state.seq,
-          location,
+          location: { kind: 'unresolved' },
           visibility: 'visible',
           groupTree: 'turn',
           data: { seq: state.seq, turn: state.turn, text: state.text, summary: state.summary, options: state.options },
@@ -9886,9 +9884,8 @@ ${COLUMN_RATIO_CSS}
     const TAIL_CARD_LIMIT = 4
 
     /**
-     * Resolve the Turn number a chat node belongs to. The generated next-step
-     * event is appended after `turn/end`; until the location index resolves it,
-     * the payload's own `turn` names the same coordinate.
+     * Resolve the Turn number a chat node belongs to. Generated next-step nodes
+     * stay outside the Host's Turn index and carry their Turn in `data.turn`.
      *
      * @param {any} node - Chat target node.
      * @returns {number | undefined} turn number, or undefined when unknown.

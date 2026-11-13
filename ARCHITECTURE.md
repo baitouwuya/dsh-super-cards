@@ -111,13 +111,12 @@ package as a peer dependency in `package.json`. A Host that exposes no writer is
 event, no model call. Reads accept the pre-0.16 type name as well, so logs already carrying it (with
 the marker repaired in place) still render.
 
-The event carries `data.turn`, which is exactly how the conversation location index resolves a
-payload coordinate — the event is appended *after* `turn/end`, so without that field it would
-belong to no Turn. The Client matches the event into a `super-cards-next` chat node whose row
-renders nothing inline; the Turn tail reads the node back (falling back to `node.data.turn` while
-the location index is unresolved) and renders it through the same `TurnTailCards` stack as a
-model-authored `tail` card. Generation is opt-in (`nextSteps: true`); the default row installs no
-listener at all.
+The event carries `data.turn` because it is appended *after* `turn/end`. The Client matches it into
+a `super-cards-next` chat node whose row renders nothing inline. The node's location stays unresolved
+so it does not enter the Host's Turn index and disable branching from the final assistant message.
+The Turn tail finds the node in the snapshot using `node.data.turn` and renders it through the same
+`TurnTailCards` stack as a model-authored `tail` card. Generation is opt-in (`nextSteps: true`); the
+default row installs no listener at all.
 
 The tail stack is transient by design: the Turn footer's selector returns nothing when any Turn
 newer than the one being rendered exists, so a next-step card never lingers once the person has

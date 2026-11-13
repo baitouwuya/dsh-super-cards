@@ -210,10 +210,11 @@ options, `null` when nothing usable). The write goes through the Host's `appendP
 log. The generator resolves the writer lazily; a Host without the export writes nothing and spends
 no model call, because losing a card is survivable and losing a session log is not. Before 0.16 the
 event was written as `super-cards/next-steps` through `Session#append`, which such a Host refuses to
-load; both names are still read, so a repaired older log keeps rendering. The event carries `data.turn` because it is appended after
-`turn/end`: the location index reads that payload coordinate, which is what binds the card to its
-Turn. The Client matches it into the `super-cards-next` chat node (row renders nothing inline) and
-the Turn tail renders it as `{ look: 'relaxed', blocks: [text, actions] }` with the first option
+load; both names are still read, so a repaired older log keeps rendering. The event carries
+`data.turn` because it is appended after `turn/end`. The Client matches it into a `super-cards-next`
+chat node whose location stays unresolved, keeping it out of the Host's Turn index so it cannot
+disable branching from the final assistant message. Its row renders nothing inline; the Turn tail
+uses `data.turn` to render it as `{ look: 'relaxed', blocks: [text, actions] }` with the first option
 primary. A model-authored `tail` card in the same Turn suppresses the generated one.
 
 **Headless header.** A card with no title, subtitle, icon, or state renders the actions cluster

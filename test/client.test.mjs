@@ -4144,7 +4144,7 @@ test('next-step event: both the current record and the legacy event render', () 
   assert.equal(client.__test.nextStepsEventData({ type: 'assistant/message', seq: 4, data: { turn: 1, options } }), null)
 })
 
-test('next-step definition: latest event wins per turn and keeps the framework location', () => {
+test('next-step definition: latest event wins and stays outside the turn location index', () => {
   const definition = client.__test.nextDefinition
   const options = [{ label: 'A', prompt: 'a' }]
 
@@ -4167,7 +4167,7 @@ test('next-step definition: latest event wins per turn and keeps the framework l
   assert.equal(node.groupTree, 'turn')
   assert.equal(node.visibility, 'visible')
   assert.equal(node.anchorSeq, 10)
-  assert.equal(node.location, location, 'the location the framework resolved is kept as-is')
+  assert.deepEqual(node.location, { kind: 'unresolved' }, 'the hidden node must not enter the turn location index')
   assert.equal(node.data.turn, 2)
   assert.equal(node.data.text, 'Q2')
   assert.deepEqual(node.data.options.map((item) => item.label), ['B', 'C'])
@@ -4218,12 +4218,16 @@ test('next-step card is tail-only: the inline row is empty and the selector targ
   assert.equal(selectTailCards(snapshot, undefined, (token) => token), '')
   assert.equal(selectTailCards(undefined, 2, (token) => token), '')
 
-  // The event is appended after `turn/end`; if the location index has not
-  // resolved it yet, the payload turn names the same coordinate.
-  const unresolved = { ...node, location: { kind: 'unresolved' } }
-  const fallbackSnapshot = { order: ['n2'], nodes: { get: () => unresolved } }
-  assert.equal(JSON.parse(selectTailCards(fallbackSnapshot, 2, (token) => token)).cards.length, 1)
-  assert.equal(selectTailCards(fallbackSnapshot, 3, (token) => token), '')
+  // Older repaired logs use the same placement and retain their tail cards.
+  const legacyEvent = legacyNextStepsEvent(21, event.data)
+  const legacyState = definition.start(null, { event: legacyEvent })
+  const legacyNode = definition.buildViewNode({
+    key: 'legacy', id: 'next-2', start: { location: { kind: 'turn', turn: { turn: 2 } } }, state: legacyState,
+  })
+  assert.deepEqual(legacyNode.location, { kind: 'unresolved' })
+  const legacySnapshot = { order: ['legacy'], nodes: { get: () => legacyNode } }
+  assert.equal(JSON.parse(selectTailCards(legacySnapshot, 2, (token) => token)).cards.length, 1)
+  assert.equal(selectTailCards(legacySnapshot, 3, (token) => token), '')
 
   // A node without usable options never renders a card.
   const emptySnapshot = { order: ['n2'], nodes: { get: () => ({ ...node, data: { ...node.data, options: [] } }) } }

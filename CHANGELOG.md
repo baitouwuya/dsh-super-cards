@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Generated next-step cards no longer disable branching from a completed Turn's final assistant
+  message. Their hidden nodes stay out of the Host's Turn index while the cards remain in the tail.
+
 ## 0.16.0 — 2026-11-10
 
 ### Fixed
