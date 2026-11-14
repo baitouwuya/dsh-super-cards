@@ -3659,7 +3659,7 @@ test('facts are a tile grid when short and a row sheet when long', () => {
   // The row sheet is one label column and one value column: the items flatten
   // into the grid so labels align across rows.
   const css = client.__test.css
-  assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{[^}]*max-width: var\(--dsh-sc-measure-wide, 76ch\);/u)
+  assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{[^}]*max-width: var\(--dsh-sc-measure-wide, 110ch\);/u)
   assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] \{[^}]*grid-template-columns: fit-content\(34%\) minmax\(0, 1fr\);/u)
   assert.match(css, /\.dsh-sc-kv\[data-layout="rows"\] > \.dsh-sc-kv-item \{ display: contents; \}/u)
   // A narrow card stacks the sheet instead of squeezing two columns.
@@ -3846,8 +3846,8 @@ test('a long list flows into columns on a wide card, a short or prose list does 
 
   // The stylesheet reads one measure token, and the flow rule keys off the attribute.
   const css = client.__test.css
-  assert.match(css, /--dsh-sc-measure: 62ch/u)
-  assert.match(css, /\.dsh-sc-text \{\n  margin: 0;\n  max-width: var\(--dsh-sc-measure, 62ch\);/u)
+  assert.match(css, /--dsh-sc-measure: 96ch/u)
+  assert.match(css, /\.dsh-sc-text \{\n  margin: 0;\n  max-width: var\(--dsh-sc-measure, 96ch\);/u)
   assert.match(css, /\.dsh-sc-list\[data-flow="1"\] \{\n  display: grid;/u)
 })
 

@@ -540,14 +540,13 @@ window.__ModuleLoader__.load({
   font-size: 13.5px;
   line-height: 1.55;
   overflow-wrap: anywhere;
-  /* One reading measure for every prose-shaped block: ~31 CJK characters a
-     line. Blocks that can spend spare width (tables, charts, columns) ignore
-     it; blocks that cannot (text, keyvalue, list) keep lines comfortable. */
-  --dsh-sc-measure: 62ch;
+  /* Prose can use the conversation width while keeping a readable cap on
+     unusually wide cards. */
+  --dsh-sc-measure: 96ch;
   /* A label/value row sheet spends its first column on labels, so the value
      column keeps the reading measure on its own: the block as a whole may be
      wider without stretching a sentence. */
-  --dsh-sc-measure-wide: 76ch;
+  --dsh-sc-measure-wide: 110ch;
 }
 .dsh-sc-head {
   display: flex;
@@ -632,7 +631,7 @@ window.__ModuleLoader__.load({
 .dsh-sc-card--relaxed .dsh-sc-callout { padding: 13px 15px; }
 .dsh-sc-text {
   margin: 0;
-  max-width: var(--dsh-sc-measure, 62ch);
+  max-width: var(--dsh-sc-measure, 96ch);
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--dsw-alias-label-primary);
@@ -806,7 +805,7 @@ window.__ModuleLoader__.load({
    key (capped so a long key cannot eat the value), one value column holding
    the whole line. No odd-count hole, no sentence wrapping inside a half tile. */
 .dsh-sc-kv[data-layout="rows"] {
-  max-width: var(--dsh-sc-measure-wide, 76ch);
+  max-width: var(--dsh-sc-measure-wide, 110ch);
   grid-template-columns: fit-content(34%) minmax(0, 1fr);
   gap: 7px 14px;
   align-items: baseline;
@@ -830,7 +829,7 @@ window.__ModuleLoader__.load({
 .dsh-sc-list {
   margin: 0;
   padding-left: 18px;
-  max-width: var(--dsh-sc-measure, 62ch);
+  max-width: var(--dsh-sc-measure, 96ch);
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--dsw-alias-label-primary);

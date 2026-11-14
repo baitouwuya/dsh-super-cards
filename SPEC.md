@@ -515,8 +515,8 @@ host's `SegmentedTabs` or a matching local segmented row.
     Sizes: title 17px/700, subtitle 12.5px secondary, body 14px/1.6, table 13px, code 12.5px;
     section headings 18px/700 (level 1, with a brand bar) and 16px/700 (level 2).
   - Prose-shaped blocks (`text`, `list`, a `keyvalue` row sheet) keep one reading measure —
-    `--dsh-sc-measure: 62ch` (~31 CJK characters a line), and a row sheet gets
-    `--dsh-sc-measure-wide: 76ch` because its first column is labels — while blocks that
+    `--dsh-sc-measure: 96ch`, and a row sheet gets
+    `--dsh-sc-measure-wide: 110ch` because its first column is labels — while blocks that
     scale with their frame (`table`, charts, `columns`, a `keyvalue` tile grid at
     `min(100%, 84ch)`) take the card width.
   - A `keyvalue` block is one of two shapes (`kvLayout`). Up to six short facts tile —

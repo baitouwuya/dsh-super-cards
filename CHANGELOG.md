@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Widened prose and list reading measures so text in mixed cards better aligns with full-width
+  tables while still wrapping within narrow cards.
 - Adapted the automatic subagent progress card to DSH 0.2.2-rc.2: it reads the current team and
   nested subagent projections, follows session status, excludes deleted tasks, and includes agent
   messages received by the current session. Projection failures are visible, and the folded
