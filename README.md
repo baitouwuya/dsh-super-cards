@@ -89,8 +89,8 @@ dsh plugin --profile desktop add dsh-super-cards
 
 ## 状态
 
-版本 0.16.0，在 DSH 0.2.2-rc.1（cordis 4.1.0）上实测可用，测试 258/258 通过
-（`npm test`，含 Host/Client 两端一致性用例与文档一致性检查）。性能数据与已知取舍见
+版本 0.16.1，在 DSH 0.2.2-rc.2 上实测可用，测试 264/264 通过
+（`npm run verify`，含 Host/Client 两端一致性用例与文档一致性检查）。性能数据与已知取舍见
 [内部实现](docs/zh/internals.md)。
 
 ## 许可证
